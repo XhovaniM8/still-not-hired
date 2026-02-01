@@ -1,0 +1,45 @@
+const { contextBridge, ipcRenderer } = require('electron')
+
+contextBridge.exposeInMainWorld('electronAPI', {
+  // Applications
+  applications: {
+    getAll: () => ipcRenderer.invoke('applications:getAll'),
+    getById: (id) => ipcRenderer.invoke('applications:getById', id),
+    create: (data) => ipcRenderer.invoke('applications:create', data),
+    update: (id, data) => ipcRenderer.invoke('applications:update', id, data),
+    delete: (id) => ipcRenderer.invoke('applications:delete', id)
+  },
+
+  // Status History
+  status: {
+    getHistory: (applicationId) => ipcRenderer.invoke('status:getHistory', applicationId),
+    add: (applicationId, status, notes) => ipcRenderer.invoke('status:add', applicationId, status, notes)
+  },
+
+  // Resumes
+  resumes: {
+    getAll: () => ipcRenderer.invoke('resumes:getAll'),
+    getById: (id) => ipcRenderer.invoke('resumes:getById', id),
+    create: (data) => ipcRenderer.invoke('resumes:create', data),
+    update: (id, data) => ipcRenderer.invoke('resumes:update', id, data),
+    delete: (id) => ipcRenderer.invoke('resumes:delete', id)
+  },
+
+  // Job Descriptions
+  jobDescriptions: {
+    getByApplication: (applicationId) => ipcRenderer.invoke('jobDescriptions:getByApplication', applicationId),
+    save: (applicationId, content, keywords) => ipcRenderer.invoke('jobDescriptions:save', applicationId, content, keywords)
+  },
+
+  // Analytics
+  analytics: {
+    getMetrics: () => ipcRenderer.invoke('analytics:getMetrics'),
+    getSankeyData: () => ipcRenderer.invoke('analytics:getSankeyData'),
+    getResumeMetrics: () => ipcRenderer.invoke('analytics:getResumeMetrics')
+  },
+
+  // Data Export
+  data: {
+    export: (format) => ipcRenderer.invoke('data:export', format)
+  }
+})
