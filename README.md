@@ -1,4 +1,4 @@
-# Job Tracker
+# WIP Job Tracker
 
 A desktop application for tracking job applications with analytics and resume management.
 
