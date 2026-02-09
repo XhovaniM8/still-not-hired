@@ -129,6 +129,22 @@ export const useApplicationsStore = defineStore('applications', () => {
     return await window.electronAPI.analytics.getResumeMetrics()
   }
 
+  async function getApplicationsByPeriod(period, startDate, endDate) {
+    return await window.electronAPI.analytics.getApplicationsByPeriod(period, startDate, endDate)
+  }
+
+  async function getCumulativeApplications(period) {
+    return await window.electronAPI.analytics.getCumulativeApplications(period)
+  }
+
+  async function getVelocityMetrics() {
+    return await window.electronAPI.analytics.getVelocityMetrics()
+  }
+
+  async function getStageDuration() {
+    return await window.electronAPI.analytics.getStageDuration()
+  }
+
   async function exportData(format) {
     return await window.electronAPI.data.export(format)
   }
@@ -159,6 +175,10 @@ export const useApplicationsStore = defineStore('applications', () => {
     getAnalytics,
     getSankeyData,
     getResumeMetrics,
+    getApplicationsByPeriod,
+    getCumulativeApplications,
+    getVelocityMetrics,
+    getStageDuration,
     exportData
   }
 })

@@ -171,6 +171,22 @@ ipcMain.handle('analytics:getResumeMetrics', () => {
   return database.getResumeMetrics()
 })
 
+ipcMain.handle('analytics:getApplicationsByPeriod', (_, period, startDate, endDate) => {
+  return database.getApplicationsByPeriod(period, startDate, endDate)
+})
+
+ipcMain.handle('analytics:getCumulativeApplications', (_, period) => {
+  return database.getCumulativeApplications(period)
+})
+
+ipcMain.handle('analytics:getVelocityMetrics', () => {
+  return database.getVelocityMetrics()
+})
+
+ipcMain.handle('analytics:getStageDuration', () => {
+  return database.getAverageStageDuration()
+})
+
 // Export
 ipcMain.handle('data:export', (_, format) => {
   return database.exportData(format)

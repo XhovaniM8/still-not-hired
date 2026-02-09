@@ -35,7 +35,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
   analytics: {
     getMetrics: () => ipcRenderer.invoke('analytics:getMetrics'),
     getSankeyData: () => ipcRenderer.invoke('analytics:getSankeyData'),
-    getResumeMetrics: () => ipcRenderer.invoke('analytics:getResumeMetrics')
+    getResumeMetrics: () => ipcRenderer.invoke('analytics:getResumeMetrics'),
+    getApplicationsByPeriod: (period, startDate, endDate) => ipcRenderer.invoke('analytics:getApplicationsByPeriod', period, startDate, endDate),
+    getCumulativeApplications: (period) => ipcRenderer.invoke('analytics:getCumulativeApplications', period),
+    getVelocityMetrics: () => ipcRenderer.invoke('analytics:getVelocityMetrics'),
+    getStageDuration: () => ipcRenderer.invoke('analytics:getStageDuration')
   },
 
   // Data Export

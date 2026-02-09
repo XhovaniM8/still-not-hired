@@ -1,6 +1,6 @@
 <template>
-  <div class="p-8">
-    <div class="flex justify-between items-center mb-8">
+  <div class="p-4 sm:p-6 lg:p-8">
+    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
       <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Applications</h1>
       <button
         @click="openModal()"
@@ -11,7 +11,7 @@
     </div>
 
     <!-- Search and Filter -->
-    <div class="flex gap-4 mb-6">
+    <div class="flex flex-col sm:flex-row gap-4 mb-6">
       <input
         v-model="searchQuery"
         type="text"

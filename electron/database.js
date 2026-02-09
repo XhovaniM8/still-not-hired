@@ -507,6 +507,163 @@ function getResumeMetrics() {
   return metrics
 }
 
+// Get applications grouped by period (daily/weekly/monthly/yearly)
+function getApplicationsByPeriod(period, startDate, endDate) {
+  let dateFormat
+  switch (period) {
+    case 'daily':
+      dateFormat = '%Y-%m-%d'
+      break
+    case 'weekly':
+      dateFormat = '%Y-W%W'
+      break
+    case 'monthly':
+      dateFormat = '%Y-%m'
+      break
+    case 'yearly':
+      dateFormat = '%Y'
+      break
+    default:
+      dateFormat = '%Y-%m-%d'
+  }
+
+  let query = `
+    SELECT
+      strftime('${dateFormat}', created_at) as period,
+      COUNT(*) as count,
+      MIN(created_at) as period_start
+    FROM applications
+  `
+
+  const params = []
+  if (startDate || endDate) {
+    const conditions = []
+    if (startDate) {
+      conditions.push('created_at >= ?')
+      params.push(startDate)
+    }
+    if (endDate) {
+      conditions.push('created_at <= ?')
+      params.push(endDate)
+    }
+    query += ` WHERE ${conditions.join(' AND ')}`
+  }
+
+  query += ` GROUP BY strftime('${dateFormat}', created_at) ORDER BY period ASC`
+
+  const stmt = db.prepare(query)
+  return stmt.all(...params)
+}
+
+// Get cumulative applications over time
+function getCumulativeApplications(period) {
+  const data = getApplicationsByPeriod(period)
+
+  let cumulative = 0
+  return data.map(row => {
+    cumulative += row.count
+    return {
+      ...row,
+      cumulative
+    }
+  })
+}
+
+// Get velocity metrics (apps per week, week-over-week change, days since last app)
+function getVelocityMetrics() {
+  // Apps in last 2 weeks
+  const last2Weeks = db.prepare(`
+    SELECT COUNT(*) as count FROM applications
+    WHERE created_at >= datetime('now', '-14 days')
+  `).get().count
+
+  // Apps in the 2 weeks before that (for comparison)
+  const prev2Weeks = db.prepare(`
+    SELECT COUNT(*) as count FROM applications
+    WHERE created_at >= datetime('now', '-28 days')
+    AND created_at < datetime('now', '-14 days')
+  `).get().count
+
+  // Week-over-week change percentage
+  const weekOverWeekChange = prev2Weeks > 0
+    ? Math.round(((last2Weeks - prev2Weeks) / prev2Weeks) * 100)
+    : (last2Weeks > 0 ? 100 : 0)
+
+  // Average apps per week (all time)
+  const firstApp = db.prepare(`
+    SELECT MIN(created_at) as first_date FROM applications
+  `).get()
+
+  let avgPerWeek = 0
+  if (firstApp.first_date) {
+    const totalApps = db.prepare('SELECT COUNT(*) as count FROM applications').get().count
+    const firstDate = new Date(firstApp.first_date)
+    const now = new Date()
+    const weeks = Math.max(1, Math.ceil((now - firstDate) / (7 * 24 * 60 * 60 * 1000)))
+    avgPerWeek = Math.round((totalApps / weeks) * 10) / 10
+  }
+
+  // Days since last application
+  const lastApp = db.prepare(`
+    SELECT MAX(created_at) as last_date FROM applications
+  `).get()
+
+  let daysSinceLastApp = null
+  if (lastApp.last_date) {
+    const lastDate = new Date(lastApp.last_date)
+    const now = new Date()
+    daysSinceLastApp = Math.floor((now - lastDate) / (24 * 60 * 60 * 1000))
+  }
+
+  return {
+    last2Weeks,
+    prev2Weeks,
+    weekOverWeekChange,
+    avgPerWeek,
+    daysSinceLastApp
+  }
+}
+
+// Get average days spent in each stage
+function getAverageStageDuration() {
+  // Get all status transitions with timestamps
+  const transitions = db.prepare(`
+    SELECT
+      sh1.application_id,
+      sh1.status as from_status,
+      sh1.created_at as from_time,
+      sh2.status as to_status,
+      sh2.created_at as to_time,
+      ROUND(JULIANDAY(sh2.created_at) - JULIANDAY(sh1.created_at), 1) as days
+    FROM status_history sh1
+    JOIN status_history sh2 ON sh1.application_id = sh2.application_id
+    WHERE sh2.id = (
+      SELECT MIN(id) FROM status_history
+      WHERE application_id = sh1.application_id AND id > sh1.id
+    )
+  `).all()
+
+  // Calculate average duration per stage
+  const stageDurations = {}
+  const stageCounts = {}
+
+  transitions.forEach(t => {
+    if (!stageDurations[t.from_status]) {
+      stageDurations[t.from_status] = 0
+      stageCounts[t.from_status] = 0
+    }
+    stageDurations[t.from_status] += t.days
+    stageCounts[t.from_status]++
+  })
+
+  const averages = {}
+  Object.keys(stageDurations).forEach(status => {
+    averages[status] = Math.round((stageDurations[status] / stageCounts[status]) * 10) / 10
+  })
+
+  return averages
+}
+
 function exportData(format) {
   const applications = getAllApplications()
   const resumes = getAllResumes()
@@ -555,5 +712,9 @@ module.exports = {
   getAnalyticsMetrics,
   getSankeyData,
   getResumeMetrics,
-  exportData
+  exportData,
+  getApplicationsByPeriod,
+  getCumulativeApplications,
+  getVelocityMetrics,
+  getAverageStageDuration
 }

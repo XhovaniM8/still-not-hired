@@ -1,6 +1,6 @@
 <template>
-  <div class="p-8">
-    <div class="flex justify-between items-center mb-8">
+  <div class="p-4 sm:p-6 lg:p-8">
+    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
       <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Analytics</h1>
       <div class="flex gap-2">
         <button
@@ -44,6 +44,40 @@
         <div class="text-xs font-medium text-gray-500 dark:text-gray-400">Offer Rate</div>
         <div class="text-2xl font-bold text-green-600 dark:text-green-400">{{ metrics.offerRate }}%</div>
       </div>
+    </div>
+
+    <!-- Velocity Metrics -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+      <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+        <div class="text-xs font-medium text-gray-500 dark:text-gray-400">Last 2 Weeks</div>
+        <div class="text-2xl font-bold text-primary-600 dark:text-primary-400">{{ velocity.last2Weeks }}</div>
+        <div class="text-xs text-gray-500 dark:text-gray-400">applications</div>
+      </div>
+      <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+        <div class="text-xs font-medium text-gray-500 dark:text-gray-400">Week-over-Week</div>
+        <div class="text-2xl font-bold" :class="velocity.weekOverWeekChange >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'">
+          {{ velocity.weekOverWeekChange >= 0 ? '+' : '' }}{{ velocity.weekOverWeekChange }}%
+        </div>
+        <div class="text-xs text-gray-500 dark:text-gray-400">vs prev 2 weeks</div>
+      </div>
+      <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+        <div class="text-xs font-medium text-gray-500 dark:text-gray-400">Avg Per Week</div>
+        <div class="text-2xl font-bold text-gray-900 dark:text-white">{{ velocity.avgPerWeek }}</div>
+        <div class="text-xs text-gray-500 dark:text-gray-400">all time</div>
+      </div>
+      <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+        <div class="text-xs font-medium text-gray-500 dark:text-gray-400">Days Since Last</div>
+        <div class="text-2xl font-bold" :class="velocity.daysSinceLastApp > 7 ? 'text-amber-600 dark:text-amber-400' : 'text-gray-900 dark:text-white'">
+          {{ velocity.daysSinceLastApp !== null ? velocity.daysSinceLastApp : '-' }}
+        </div>
+        <div class="text-xs text-gray-500 dark:text-gray-400">application</div>
+      </div>
+    </div>
+
+    <!-- Application Activity Chart -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-8">
+      <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Application Activity</h2>
+      <TimeSeriesChart :fetch-data="fetchTimeSeriesData" />
     </div>
 
     <!-- Sankey Diagram -->
@@ -111,6 +145,12 @@
       </div>
     </div>
 
+    <!-- Stage Duration -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-8">
+      <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Average Time in Each Stage</h2>
+      <StageDuration :durations="stageDurations" />
+    </div>
+
     <!-- Resume Performance -->
     <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
       <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Resume Performance</h2>
@@ -152,6 +192,8 @@ import { ref, onMounted } from 'vue'
 import { useApplicationsStore } from '@/stores/applications'
 import { calculateMetrics, calculateResumeMetrics, formatSankeyData } from '@/utils/metrics'
 import SankeyChart from '@/components/SankeyChart.vue'
+import TimeSeriesChart from '@/components/TimeSeriesChart.vue'
+import StageDuration from '@/components/StageDuration.vue'
 
 const store = useApplicationsStore()
 
@@ -168,6 +210,18 @@ const metrics = ref({
 })
 const sankeyData = ref(null)
 const resumeMetrics = ref([])
+const velocity = ref({
+  last2Weeks: 0,
+  prev2Weeks: 0,
+  weekOverWeekChange: 0,
+  avgPerWeek: 0,
+  daysSinceLastApp: null
+})
+const stageDurations = ref({})
+
+async function fetchTimeSeriesData(period) {
+  return await store.getCumulativeApplications(period)
+}
 
 async function loadAnalytics() {
   const analytics = await store.getAnalytics()
@@ -180,6 +234,12 @@ async function loadAnalytics() {
 
   const rawResumeMetrics = await store.getResumeMetrics()
   resumeMetrics.value = calculateResumeMetrics(rawResumeMetrics)
+
+  // Load velocity metrics
+  velocity.value = await store.getVelocityMetrics()
+
+  // Load stage durations
+  stageDurations.value = await store.getStageDuration()
 }
 
 async function exportData(format) {

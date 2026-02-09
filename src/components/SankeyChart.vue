@@ -1,9 +1,9 @@
 <template>
-  <div ref="container" class="w-full h-80"></div>
+  <div ref="container" class="w-full" :style="{ minHeight: containerHeight + 'px' }"></div>
 </template>
 
 <script setup>
-import { ref, onMounted, watch, onUnmounted } from 'vue'
+import { ref, computed, onMounted, watch, onUnmounted } from 'vue'
 import * as d3 from 'd3'
 import { sankey, sankeyLinkHorizontal } from 'd3-sankey'
 
@@ -29,6 +29,14 @@ const statusColors = {
   dropped: '#F97316'
 }
 
+// Dynamic height based on node count
+const containerHeight = computed(() => {
+  if (!props.data || !props.data.nodes) return 320
+  const nodeCount = props.data.nodes.length
+  // Minimum 320px, add 40px per node above 6
+  return Math.max(320, 200 + nodeCount * 35)
+})
+
 function renderChart() {
   if (!container.value || !props.data) return
 
@@ -46,18 +54,23 @@ function renderChart() {
   }
 
   const width = container.value.clientWidth
-  const height = container.value.clientHeight
-  const margin = { top: 20, right: 120, bottom: 20, left: 20 }
+  const height = containerHeight.value
+  const margin = { top: 20, right: 140, bottom: 20, left: 20 }
 
   const svg = d3.select(container.value)
     .append('svg')
     .attr('width', width)
     .attr('height', height)
 
+  // Dynamic node padding based on available space and node count
+  const availableHeight = height - margin.top - margin.bottom
+  const nodeCount = nodes.length
+  const dynamicPadding = Math.max(8, Math.min(20, Math.floor(availableHeight / (nodeCount + 1))))
+
   const sankeyGenerator = sankey()
     .nodeId(d => d.id)
     .nodeWidth(15)
-    .nodePadding(20)
+    .nodePadding(dynamicPadding)
     .extent([[margin.left, margin.top], [width - margin.right, height - margin.bottom]])
 
   const { nodes: sankeyNodes, links: sankeyLinks } = sankeyGenerator({
@@ -100,13 +113,30 @@ function renderChart() {
     .append('title')
     .text(d => `${d.name}: ${d.value}`)
 
-  // Draw labels
+  // Draw labels with collision detection
+  const labelPositions = []
+
   svg.append('g')
     .selectAll('text')
     .data(sankeyNodes)
     .join('text')
     .attr('x', d => d.x0 < width / 2 ? d.x1 + 6 : d.x0 - 6)
-    .attr('y', d => (d.y1 + d.y0) / 2)
+    .attr('y', d => {
+      let targetY = (d.y1 + d.y0) / 2
+      const isRightSide = d.x0 >= width / 2
+
+      // Check for collision with existing labels on same side
+      const sameLabels = labelPositions.filter(p => p.rightSide === isRightSide)
+      for (const existing of sameLabels) {
+        if (Math.abs(targetY - existing.y) < 14) {
+          // Adjust position to avoid overlap
+          targetY = existing.y + 14
+        }
+      }
+
+      labelPositions.push({ y: targetY, rightSide: isRightSide })
+      return targetY
+    })
     .attr('dy', '0.35em')
     .attr('text-anchor', d => d.x0 < width / 2 ? 'start' : 'end')
     .attr('class', 'text-xs fill-current text-gray-700 dark:text-gray-300')

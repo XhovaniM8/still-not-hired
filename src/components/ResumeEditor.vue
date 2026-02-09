@@ -98,15 +98,23 @@
           </div>
           <div class="flex flex-wrap gap-1">
             <button
-              v-for="keyword in suggestedKeywords"
-              :key="keyword"
+              v-for="suggestion in suggestedKeywords"
+              :key="suggestion.keyword"
               type="button"
-              @click="form.keywords.push(keyword)"
-              class="px-2 py-1 text-xs bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 rounded-full hover:bg-primary-100 dark:hover:bg-primary-900/50 hover:text-primary-700 dark:hover:text-primary-300"
+              @click="form.keywords.push(suggestion.keyword)"
+              class="px-2 py-1 text-xs rounded-full transition-colors"
+              :class="getSuggestionClass(suggestion)"
+              :title="suggestion.reason"
             >
-              + {{ keyword }}
+              + {{ suggestion.keyword }}
             </button>
           </div>
+          <div class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+            Hover for details. Based on {{ jobsWithKeywords.length > 0 ? `${jobsWithKeywords.length} saved jobs` : 'current job' }}.
+          </div>
+        </div>
+        <div v-else-if="jobsWithKeywords.length === 0 && !props.jobKeywords" class="text-xs text-gray-500 dark:text-gray-400">
+          Save job descriptions with keywords to get personalized suggestions.
         </div>
 
         <!-- File Path -->
@@ -158,6 +166,11 @@ const props = defineProps({
   resume: {
     type: Object,
     default: null
+  },
+  // Optional: pass current job keywords for context-aware suggestions
+  jobKeywords: {
+    type: Array,
+    default: null
   }
 })
 
@@ -177,9 +190,35 @@ const form = ref({
 
 const newKeyword = ref('')
 const errorMessage = ref('')
+const jobsWithKeywords = ref([])
+
+// Fetch job descriptions with keywords for corpus-based suggestions
+async function loadJobKeywords() {
+  try {
+    const jobs = []
+    for (const app of store.applications) {
+      const jd = await store.getJobDescription(app.id)
+      if (jd && jd.keywords) {
+        const keywords = typeof jd.keywords === 'string'
+          ? JSON.parse(jd.keywords)
+          : jd.keywords
+        if (keywords.length > 0) {
+          jobs.push({ id: app.id, keywords })
+        }
+      }
+    }
+    jobsWithKeywords.value = jobs
+  } catch (e) {
+    console.warn('Could not load job keywords for suggestions:', e)
+  }
+}
 
 const suggestedKeywords = computed(() => {
-  return getSuggestedKeywords(form.value.keywords)
+  return getSuggestedKeywords(
+    form.value.keywords,
+    props.jobKeywords,
+    jobsWithKeywords.value.length > 0 ? jobsWithKeywords.value : null
+  )
 })
 
 function addKeyword() {
@@ -202,6 +241,19 @@ function extractKeywordsFromContent() {
       form.value.keywords.push(k)
     }
   })
+}
+
+function getSuggestionClass(suggestion) {
+  const baseClass = 'hover:bg-primary-100 dark:hover:bg-primary-900/50 hover:text-primary-700 dark:hover:text-primary-300'
+  if (suggestion.source === 'job') {
+    // From current job description - higher priority
+    if (suggestion.category === 'core_technical') {
+      return `bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300 ${baseClass}`
+    }
+    return `bg-orange-100 dark:bg-orange-900/50 text-orange-700 dark:text-orange-300 ${baseClass}`
+  }
+  // From corpus analysis
+  return `bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 ${baseClass}`
 }
 
 async function save() {
@@ -227,7 +279,7 @@ async function save() {
   }
 }
 
-onMounted(() => {
+onMounted(async () => {
   if (props.resume) {
     form.value = {
       name: props.resume.name,
@@ -236,6 +288,11 @@ onMounted(() => {
       keywords: JSON.parse(props.resume.keywords || '[]'),
       file_path: props.resume.file_path || ''
     }
+  }
+
+  // Load job keywords for corpus-based suggestions
+  if (store.applications.length > 0) {
+    await loadJobKeywords()
   }
 })
 </script>
