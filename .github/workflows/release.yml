@@ -79,7 +79,7 @@ jobs:
         run: npm ci
 
       - name: Install Linux build dependencies
-        run: sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.0-dev libappindicator3-dev librsvg2-dev patchelf
+        run: sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev librsvg2-dev patchelf
 
       - name: Build Linux
         run: npm run electron:build:linux

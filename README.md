@@ -68,6 +68,15 @@ npm run electron:build:linux
 | Charts | Chart.js, D3.js, D3-Sankey |
 | Build | Vite, electron-builder |
 
+## Known Issues
+
+- **Keyword matching uses a predefined dictionary** — Skills not in the built-in list won't be detected unless they appear in an explicit skill section or follow CamelCase/alphanumeric patterns (e.g. `GraphQL`, `OAuth2`). Niche or domain-specific terms may be missed.
+- **Resume keyword extraction is not automatic** — After pasting resume content in the editor, you must click "Extract keywords from content" to populate keywords. They are not extracted on save.
+- **Match scores are unreliable with few saved jobs** — The TF-IDF analytics requires a reasonable corpus of saved job descriptions to be meaningful. With fewer than ~10 saved jobs, keyword frequency analysis produces noisy results.
+- **No PDF import** — Resumes must be pasted as plain text or LaTeX source. PDF files cannot be imported directly.
+- **macOS Gatekeeper warning** — The app is not code-signed. On first launch you may need to right-click → Open to bypass the "unidentified developer" warning.
+- **Windows Defender / antivirus warning** — The installer is unsigned and may be flagged by Windows Defender or other antivirus software on first run.
+
 ## Contributing
 
 Contributions are welcome! Please read [CONTRIBUTING.md](CONTRIBUTING.md) before submitting a pull request.
