@@ -2,7 +2,10 @@
   "name": "job-tracker",
   "version": "1.0.0",
   "description": "Desktop application for tracking job applications with analytics",
-  "author": "XhovaniM8",
+  "author": {
+    "name": "XhovaniM8",
+    "email": "xhovanim8@gmail.com"
+  },
   "license": "MIT",
   "main": "electron/main.js",
   "scripts": {
