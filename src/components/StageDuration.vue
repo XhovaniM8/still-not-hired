@@ -3,7 +3,7 @@
     <div v-for="stage in orderedStages" :key="stage.status">
       <div class="flex justify-between text-sm mb-1">
         <span class="text-gray-600 dark:text-gray-400">{{ stage.label }}</span>
-        <span class="text-gray-900 dark:text-white font-medium">{{ stage.days }} days avg</span>
+        <span class="text-gray-900 dark:text-white font-medium">{{ formatDays(stage.days) }}</span>
       </div>
       <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
         <div
@@ -48,6 +48,13 @@ const maxDays = computed(() => {
   const values = Object.values(props.durations)
   return values.length > 0 ? Math.max(...values, 1) : 1
 })
+
+function formatDays(days) {
+  if (days < 1) return '< 1 day avg'
+  if (days === 1) return '1 day avg'
+  const rounded = Math.round(days * 10) / 10
+  return `${Number.isInteger(rounded) ? rounded : rounded} days avg`
+}
 
 function getBarColor(status) {
   const colors = {

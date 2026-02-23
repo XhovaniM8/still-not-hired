@@ -228,7 +228,8 @@ function formatLabel(period) {
 
   // Daily format: 2024-01-15
   if (/^\d{4}-\d{2}-\d{2}$/.test(period)) {
-    const date = new Date(period)
+    const [y, m, d] = period.split('-').map(Number)
+    const date = new Date(y, m - 1, d)
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
   }
 

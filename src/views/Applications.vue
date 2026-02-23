@@ -30,16 +30,18 @@
     </div>
 
     <!-- Applications List -->
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
-      <table class="w-full">
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow overflow-x-auto">
+      <table class="w-full min-w-[700px]">
         <thead class="bg-gray-50 dark:bg-gray-700">
           <tr>
-            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Company</th>
-            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Title</th>
-            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Location</th>
-            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Status</th>
-            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Resume</th>
-            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Actions</th>
+            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Company</th>
+            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Title</th>
+            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider hidden md:table-cell">Location</th>
+            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Status</th>
+            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider hidden lg:table-cell">Resume</th>
+            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Applied</th>
+            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider hidden sm:table-cell">Updated</th>
+            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Actions</th>
           </tr>
         </thead>
         <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
@@ -49,16 +51,16 @@
             class="hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer"
             @click="viewApplication(app)"
           >
-            <td class="px-6 py-4 whitespace-nowrap text-gray-900 dark:text-white font-medium">
+            <td class="px-4 py-3 whitespace-nowrap text-gray-900 dark:text-white font-medium">
               {{ app.company }}
             </td>
-            <td class="px-6 py-4 whitespace-nowrap text-gray-700 dark:text-gray-300">
+            <td class="px-4 py-3 whitespace-nowrap text-gray-700 dark:text-gray-300">
               {{ app.title }}
             </td>
-            <td class="px-6 py-4 whitespace-nowrap text-gray-500 dark:text-gray-400">
+            <td class="px-4 py-3 whitespace-nowrap text-gray-500 dark:text-gray-400 hidden md:table-cell">
               {{ app.location || '-' }}
             </td>
-            <td class="px-6 py-4 whitespace-nowrap">
+            <td class="px-4 py-3 whitespace-nowrap">
               <span
                 class="px-2 py-1 text-xs font-medium rounded-full"
                 :class="store.statusColors[app.current_status]"
@@ -66,10 +68,16 @@
                 {{ store.statusLabels[app.current_status] }}
               </span>
             </td>
-            <td class="px-6 py-4 whitespace-nowrap text-gray-500 dark:text-gray-400">
+            <td class="px-4 py-3 whitespace-nowrap text-gray-500 dark:text-gray-400 hidden lg:table-cell">
               {{ app.resume_name || '-' }}
             </td>
-            <td class="px-6 py-4 whitespace-nowrap">
+            <td class="px-4 py-3 whitespace-nowrap text-gray-500 dark:text-gray-400 text-sm">
+              {{ formatDate(app.created_at) }}
+            </td>
+            <td class="px-4 py-3 whitespace-nowrap text-gray-500 dark:text-gray-400 text-sm hidden sm:table-cell">
+              {{ formatDate(app.updated_at) }}
+            </td>
+            <td class="px-4 py-3 whitespace-nowrap">
               <button
                 @click.stop="openModal(app)"
                 class="text-primary-600 hover:text-primary-800 dark:text-primary-400 mr-3"
@@ -211,6 +219,11 @@ async function deleteApplication() {
     showDeleteConfirm.value = false
     applicationToDelete.value = null
   }
+}
+
+function formatDate(dateStr) {
+  if (!dateStr) return '-'
+  return new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 }
 
 onMounted(() => {

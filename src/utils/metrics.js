@@ -20,7 +20,7 @@ export function calculateMetrics(applications, analytics) {
     }
   }
 
-  const { stagesReached = {}, statusDistribution = {}, rejectionsByStage = {}, positiveResponses = 0 } = analytics
+  const { stagesReached = {}, statusDistribution = {}, rejectionsByStage = {}, positiveResponses = 0, interviewsReached = 0 } = analytics
 
   // Calculate rates based on stages reached
   const oaReached = stagesReached.online_assessment || 0
@@ -34,8 +34,9 @@ export function calculateMetrics(applications, analytics) {
   const ghosted = statusDistribution.ghosted || 0
   const anyProgress = oaReached + recruiterReached + technicalReached + onsiteReached + offerReached
 
-  // Response rate = anything except ghosted
-  const responded = total - ghosted
+  // Response rate = anything except ghosted or still pending at applied stage
+  const stillApplied = statusDistribution.applied || 0
+  const responded = total - ghosted - stillApplied
   const responseRate = Math.round((responded / total) * 100)
 
   // Positive response = reached OA, screens, interviews, or offer
@@ -51,7 +52,7 @@ export function calculateMetrics(applications, analytics) {
     positiveResponseRate,
     oaRate: Math.round((oaReached / total) * 100),
     screenRate: Math.round((recruiterReached / total) * 100),
-    interviewRate: Math.round((onsiteReached / total) * 100),
+    interviewRate: Math.round((interviewsReached / total) * 100),
     offerRate: Math.round((offerReached / total) * 100),
     autoRejectRate,
     stagesReached,
@@ -98,16 +99,12 @@ export function formatSankeyData(sankeyData) {
     dropped: 'Dropped'
   }
 
-  // Build nodes from statuses that actually have data
+  // Build nodes only from statuses that appear in transitions (avoids isolated nodes)
   const activeStatuses = new Set()
 
   transitions.forEach(t => {
     activeStatuses.add(t.from_status)
     activeStatuses.add(t.to_status)
-  })
-
-  terminal.forEach(t => {
-    activeStatuses.add(t.status)
   })
 
   // Define order for positioning
@@ -124,9 +121,10 @@ export function formatSankeyData(sankeyData) {
       name: statusLabels[status] || status
     }))
 
-  // Build links from transitions - use status IDs directly (nodeId is set to d.id)
+  // Filter links using actual node IDs to prevent D3 errors with unknown statuses
+  const nodeIds = new Set(nodes.map(n => n.id))
   const links = transitions
-    .filter(t => activeStatuses.has(t.from_status) && activeStatuses.has(t.to_status))
+    .filter(t => nodeIds.has(t.from_status) && nodeIds.has(t.to_status))
     .map(t => ({
       source: t.from_status,
       target: t.to_status,

@@ -4,6 +4,7 @@ import { ref, computed } from 'vue'
 export const useApplicationsStore = defineStore('applications', () => {
   const applications = ref([])
   const resumes = ref([])
+  const contacts = ref([])
   const loading = ref(false)
   const error = ref(null)
 
@@ -149,9 +150,46 @@ export const useApplicationsStore = defineStore('applications', () => {
     return await window.electronAPI.data.export(format)
   }
 
+  async function fetchContacts() {
+    try {
+      contacts.value = await window.electronAPI.contacts.getAll()
+    } catch (e) {
+      error.value = e.message
+    }
+  }
+
+  async function createContact(data) {
+    const result = await window.electronAPI.contacts.create(data)
+    await fetchContacts()
+    return result
+  }
+
+  async function updateContact(id, data) {
+    await window.electronAPI.contacts.update(id, data)
+    await fetchContacts()
+  }
+
+  async function deleteContact(id) {
+    await window.electronAPI.contacts.delete(id)
+    await fetchContacts()
+  }
+
+  async function getContactsForApplication(applicationId) {
+    return await window.electronAPI.contacts.getByApplication(applicationId)
+  }
+
+  async function linkContact(applicationId, contactId) {
+    return await window.electronAPI.contacts.link(applicationId, contactId)
+  }
+
+  async function unlinkContact(applicationId, contactId) {
+    return await window.electronAPI.contacts.unlink(applicationId, contactId)
+  }
+
   return {
     applications,
     resumes,
+    contacts,
     loading,
     error,
     statusLabels,
@@ -179,6 +217,13 @@ export const useApplicationsStore = defineStore('applications', () => {
     getCumulativeApplications,
     getVelocityMetrics,
     getStageDuration,
-    exportData
+    exportData,
+    fetchContacts,
+    createContact,
+    updateContact,
+    deleteContact,
+    getContactsForApplication,
+    linkContact,
+    unlinkContact
   }
 })

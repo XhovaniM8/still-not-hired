@@ -19,7 +19,7 @@
     </div>
 
     <!-- Detailed Metrics -->
-    <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 mb-8">
+    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
       <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
         <div class="text-xs font-medium text-gray-500 dark:text-gray-400">Total</div>
         <div class="text-2xl font-bold text-gray-900 dark:text-white">{{ metrics.total }}</div>
@@ -81,7 +81,7 @@
     </div>
 
     <!-- Sankey Diagram -->
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-8">
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-8 overflow-hidden">
       <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Application Flow</h2>
       <SankeyChart v-if="sankeyData" :data="sankeyData" />
       <div v-else class="h-64 flex items-center justify-center text-gray-500">

@@ -114,15 +114,98 @@
             </span>
           </div>
         </div>
+
+        <!-- Contacts -->
+        <div>
+          <div class="flex items-center justify-between mb-2">
+            <h3 class="text-sm font-semibold text-gray-900 dark:text-white">Contacts</h3>
+            <button
+              @click="showLinkPanel = !showLinkPanel"
+              class="text-xs text-primary-600 hover:text-primary-800 dark:text-primary-400"
+            >
+              + Link Contact
+            </button>
+          </div>
+
+          <!-- Linked contacts list -->
+          <div v-if="linkedContacts.length > 0" class="space-y-2 mb-3">
+            <div
+              v-for="c in linkedContacts"
+              :key="c.id"
+              class="flex items-center justify-between px-3 py-2 bg-gray-50 dark:bg-gray-700/50 rounded-lg"
+            >
+              <div class="flex items-center gap-3">
+                <span class="px-2 py-0.5 text-xs rounded-full font-medium" :class="roleColor(c.role)">
+                  {{ c.role }}
+                </span>
+                <div>
+                  <div class="text-sm font-medium text-gray-900 dark:text-white">{{ c.name }}</div>
+                  <div v-if="c.email || c.company" class="text-xs text-gray-500 dark:text-gray-400">
+                    {{ [c.company, c.email].filter(Boolean).join(' · ') }}
+                  </div>
+                </div>
+              </div>
+              <button
+                @click="unlink(c.id)"
+                class="text-gray-400 hover:text-red-500 dark:hover:text-red-400 text-xs"
+                title="Unlink"
+              >
+                ✕
+              </button>
+            </div>
+          </div>
+          <p v-else class="text-xs text-gray-500 dark:text-gray-400 mb-3">No contacts linked yet.</p>
+
+          <!-- Link panel -->
+          <div v-if="showLinkPanel" class="border border-gray-200 dark:border-gray-600 rounded-lg p-3 space-y-2">
+            <div class="flex gap-2">
+              <select
+                v-model="selectedContactId"
+                class="flex-1 px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500"
+              >
+                <option :value="null">Select a contact...</option>
+                <option
+                  v-for="c in availableContacts"
+                  :key="c.id"
+                  :value="c.id"
+                >
+                  {{ c.name }}{{ c.company ? ` (${c.company})` : '' }}
+                </option>
+              </select>
+              <button
+                @click="linkSelected"
+                :disabled="!selectedContactId"
+                class="px-3 py-1.5 text-sm bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50"
+              >
+                Link
+              </button>
+            </div>
+            <button
+              @click="showNewContactForm = true; showLinkPanel = false"
+              class="text-xs text-primary-600 hover:text-primary-800 dark:text-primary-400"
+            >
+              + Create new contact
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   </div>
+
+  <!-- New contact form modal (pre-linked to this application) -->
+  <ContactForm
+    v-if="showNewContactForm"
+    :application-id="application.id"
+    @close="showNewContactForm = false"
+    @saved="onNewContactSaved"
+  />
 </template>
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { useApplicationsStore } from '@/stores/applications'
 import StatusTimeline from './StatusTimeline.vue'
+import ContactForm from './ContactForm.vue'
 
 const props = defineProps({
   application: {
@@ -136,6 +219,49 @@ const emit = defineEmits(['close', 'edit', 'statusUpdated'])
 const store = useApplicationsStore()
 const statusHistory = ref([])
 const jobKeywords = ref([])
+const linkedContacts = ref([])
+const showLinkPanel = ref(false)
+const showNewContactForm = ref(false)
+const selectedContactId = ref(null)
+
+const availableContacts = computed(() => {
+  const linkedIds = new Set(linkedContacts.value.map(c => c.id))
+  return store.contacts.filter(c => !linkedIds.has(c.id))
+})
+
+function roleColor(role) {
+  const map = {
+    'Recruiter': 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
+    'Referral': 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
+    'Hiring Manager': 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200',
+    'HR': 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200',
+    'Other': 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300'
+  }
+  return map[role] || map['Other']
+}
+
+async function loadLinkedContacts() {
+  linkedContacts.value = await store.getContactsForApplication(props.application.id)
+}
+
+async function linkSelected() {
+  if (!selectedContactId.value) return
+  await store.linkContact(props.application.id, selectedContactId.value)
+  selectedContactId.value = null
+  showLinkPanel.value = false
+  await loadLinkedContacts()
+}
+
+async function unlink(contactId) {
+  await store.unlinkContact(props.application.id, contactId)
+  await loadLinkedContacts()
+}
+
+async function onNewContactSaved() {
+  showNewContactForm.value = false
+  await store.fetchContacts()
+  await loadLinkedContacts()
+}
 
 const availableStatuses = computed(() => {
   return [...store.progressionStatuses, ...store.terminalStatuses]
@@ -209,5 +335,8 @@ onMounted(async () => {
       jobKeywords.value = []
     }
   }
+
+  await store.fetchContacts()
+  await loadLinkedContacts()
 })
 </script>

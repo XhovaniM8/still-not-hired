@@ -83,6 +83,7 @@ const navItems = [
   { name: 'Dashboard', path: '/' },
   { name: 'Applications', path: '/applications' },
   { name: 'Resumes', path: '/resumes' },
+  { name: 'Contacts', path: '/contacts' },
   { name: 'Analytics', path: '/analytics' }
 ]
 

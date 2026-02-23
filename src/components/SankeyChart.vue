@@ -3,7 +3,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch, onUnmounted } from 'vue'
+import { ref, computed, onMounted, watch, onUnmounted, nextTick } from 'vue'
 import * as d3 from 'd3'
 import { sankey, sankeyLinkHorizontal } from 'd3-sankey'
 
@@ -40,6 +40,9 @@ const containerHeight = computed(() => {
 function renderChart() {
   if (!container.value || !props.data) return
 
+  const width = container.value.clientWidth
+  if (width === 0) return
+
   // Clear previous chart
   d3.select(container.value).selectAll('*').remove()
 
@@ -53,7 +56,6 @@ function renderChart() {
     return
   }
 
-  const width = container.value.clientWidth
   const height = containerHeight.value
   const margin = { top: 20, right: 140, bottom: 20, left: 20 }
 
@@ -73,10 +75,23 @@ function renderChart() {
     .nodePadding(dynamicPadding)
     .extent([[margin.left, margin.top], [width - margin.right, height - margin.bottom]])
 
-  const { nodes: sankeyNodes, links: sankeyLinks } = sankeyGenerator({
-    nodes: nodes.map(d => ({ ...d })),
-    links: links.map(d => ({ ...d }))
-  })
+  let sankeyNodes, sankeyLinks
+  try {
+    const result = sankeyGenerator({
+      nodes: nodes.map(d => ({ ...d })),
+      links: links.map(d => ({ ...d }))
+    })
+    sankeyNodes = result.nodes
+    sankeyLinks = result.links
+  } catch (e) {
+    console.error('Sankey layout error:', e)
+    d3.select(container.value).selectAll('*').remove()
+    d3.select(container.value)
+      .append('div')
+      .attr('class', 'flex items-center justify-center h-64 text-gray-500')
+      .text('Unable to display flow diagram')
+    return
+  }
 
   // Draw links
   svg.append('g')
@@ -144,15 +159,19 @@ function renderChart() {
 }
 
 watch(() => props.data, () => {
-  renderChart()
+  nextTick(renderChart)
 }, { deep: true })
 
-onMounted(() => {
+let resizeObserver = null
+
+onMounted(async () => {
+  await nextTick()
   renderChart()
-  window.addEventListener('resize', renderChart)
+  resizeObserver = new ResizeObserver(renderChart)
+  if (container.value) resizeObserver.observe(container.value)
 })
 
 onUnmounted(() => {
-  window.removeEventListener('resize', renderChart)
+  if (resizeObserver) resizeObserver.disconnect()
 })
 </script>

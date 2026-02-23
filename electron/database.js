@@ -58,6 +58,31 @@ function initialize() {
 
     CREATE INDEX IF NOT EXISTS idx_status_history_app ON status_history(application_id);
     CREATE INDEX IF NOT EXISTS idx_applications_resume ON applications(resume_id);
+
+    CREATE TABLE IF NOT EXISTS contacts (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      email TEXT,
+      phone TEXT,
+      role TEXT DEFAULT 'Other',
+      company TEXT,
+      linkedin_url TEXT,
+      notes TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS application_contacts (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      application_id INTEGER NOT NULL,
+      contact_id INTEGER NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (application_id) REFERENCES applications(id) ON DELETE CASCADE,
+      FOREIGN KEY (contact_id) REFERENCES contacts(id) ON DELETE CASCADE,
+      UNIQUE(application_id, contact_id)
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_app_contacts_app ON application_contacts(application_id);
+    CREATE INDEX IF NOT EXISTS idx_app_contacts_contact ON application_contacts(contact_id);
   `)
 
   return db
@@ -426,6 +451,13 @@ function getAnalyticsMetrics() {
     WHERE status IN ('online_assessment', 'recruiter_screen', 'technical_screen', 'onsite_interview', 'offer')
   `).get().count
 
+  // Count unique applications that reached any interview stage (screens + onsite, excludes OA)
+  const interviewsReached = db.prepare(`
+    SELECT COUNT(DISTINCT application_id) as count
+    FROM status_history
+    WHERE status IN ('recruiter_screen', 'technical_screen', 'onsite_interview')
+  `).get().count
+
   // Get rejections by last non-terminal status
   const rejectionsByStage = db.prepare(`
     SELECT
@@ -451,6 +483,7 @@ function getAnalyticsMetrics() {
     statusDistribution: statusMap,
     stagesReached: reachedMap,
     positiveResponses,
+    interviewsReached,
     rejectionsByStage: rejectionsByStage.reduce((acc, r) => {
       acc[r.rejected_at_stage] = r.count
       return acc
@@ -597,7 +630,7 @@ function getVelocityMetrics() {
   let avgPerWeek = 0
   if (firstApp.first_date) {
     const totalApps = db.prepare('SELECT COUNT(*) as count FROM applications').get().count
-    const firstDate = new Date(firstApp.first_date)
+    const firstDate = new Date(firstApp.first_date.replace(' ', 'T') + 'Z')
     const now = new Date()
     const weeks = Math.max(1, Math.ceil((now - firstDate) / (7 * 24 * 60 * 60 * 1000)))
     avgPerWeek = Math.round((totalApps / weeks) * 10) / 10
@@ -610,9 +643,9 @@ function getVelocityMetrics() {
 
   let daysSinceLastApp = null
   if (lastApp.last_date) {
-    const lastDate = new Date(lastApp.last_date)
+    const lastDate = new Date(lastApp.last_date.replace(' ', 'T') + 'Z')
     const now = new Date()
-    daysSinceLastApp = Math.floor((now - lastDate) / (24 * 60 * 60 * 1000))
+    daysSinceLastApp = Math.max(0, Math.floor((now - lastDate) / (24 * 60 * 60 * 1000)))
   }
 
   return {
@@ -693,6 +726,103 @@ function exportData(format) {
   return null
 }
 
+// Contacts
+function getAllContacts() {
+  const stmt = db.prepare(`
+    SELECT c.*, COUNT(ac.application_id) as app_count
+    FROM contacts c
+    LEFT JOIN application_contacts ac ON ac.contact_id = c.id
+    GROUP BY c.id
+    ORDER BY c.name ASC
+  `)
+  return stmt.all()
+}
+
+function getContactById(id) {
+  const stmt = db.prepare('SELECT * FROM contacts WHERE id = ?')
+  return stmt.get(id)
+}
+
+function createContact(data) {
+  if (!data.name || !data.name.trim()) {
+    throw new Error('Contact name is required')
+  }
+  const stmt = db.prepare(`
+    INSERT INTO contacts (name, email, phone, role, company, linkedin_url, notes)
+    VALUES (@name, @email, @phone, @role, @company, @linkedin_url, @notes)
+  `)
+  const result = stmt.run({
+    name: data.name.trim(),
+    email: data.email?.trim() || null,
+    phone: data.phone?.trim() || null,
+    role: data.role || 'Other',
+    company: data.company?.trim() || null,
+    linkedin_url: data.linkedin_url?.trim() || null,
+    notes: data.notes?.trim() || null
+  })
+  return { id: result.lastInsertRowid }
+}
+
+function updateContact(id, data) {
+  const stmt = db.prepare(`
+    UPDATE contacts
+    SET name = @name,
+        email = @email,
+        phone = @phone,
+        role = @role,
+        company = @company,
+        linkedin_url = @linkedin_url,
+        notes = @notes
+    WHERE id = @id
+  `)
+  stmt.run({
+    id,
+    name: data.name,
+    email: data.email || null,
+    phone: data.phone || null,
+    role: data.role || 'Other',
+    company: data.company || null,
+    linkedin_url: data.linkedin_url || null,
+    notes: data.notes || null
+  })
+  return { success: true }
+}
+
+function deleteContact(id) {
+  const stmt = db.prepare('DELETE FROM contacts WHERE id = ?')
+  stmt.run(id)
+  return { success: true }
+}
+
+function getContactsForApplication(applicationId) {
+  const stmt = db.prepare(`
+    SELECT c.*
+    FROM contacts c
+    JOIN application_contacts ac ON ac.contact_id = c.id
+    WHERE ac.application_id = ?
+    ORDER BY c.name ASC
+  `)
+  return stmt.all(applicationId)
+}
+
+function linkContactToApplication(applicationId, contactId) {
+  const stmt = db.prepare(`
+    INSERT OR IGNORE INTO application_contacts (application_id, contact_id)
+    VALUES (?, ?)
+  `)
+  stmt.run(applicationId, contactId)
+  return { success: true }
+}
+
+function unlinkContactFromApplication(applicationId, contactId) {
+  const stmt = db.prepare(`
+    DELETE FROM application_contacts
+    WHERE application_id = ? AND contact_id = ?
+  `)
+  stmt.run(applicationId, contactId)
+  return { success: true }
+}
+
 module.exports = {
   initialize,
   getAllApplications,
@@ -716,5 +846,13 @@ module.exports = {
   getApplicationsByPeriod,
   getCumulativeApplications,
   getVelocityMetrics,
-  getAverageStageDuration
+  getAverageStageDuration,
+  getAllContacts,
+  getContactById,
+  createContact,
+  updateContact,
+  deleteContact,
+  getContactsForApplication,
+  linkContactToApplication,
+  unlinkContactFromApplication
 }

@@ -192,3 +192,40 @@ ipcMain.handle('data:export', (_, format) => {
   return database.exportData(format)
 })
 
+// Contacts
+ipcMain.handle('contacts:getAll', () => {
+  return database.getAllContacts()
+})
+
+ipcMain.handle('contacts:create', (_, data) => {
+  try {
+    return database.createContact(data)
+  } catch (error) {
+    throw new Error(error.message || 'Failed to create contact')
+  }
+})
+
+ipcMain.handle('contacts:update', (_, id, data) => {
+  try {
+    return database.updateContact(id, data)
+  } catch (error) {
+    throw new Error(error.message || 'Failed to update contact')
+  }
+})
+
+ipcMain.handle('contacts:delete', (_, id) => {
+  return database.deleteContact(id)
+})
+
+ipcMain.handle('contacts:getByApplication', (_, applicationId) => {
+  return database.getContactsForApplication(applicationId)
+})
+
+ipcMain.handle('contacts:link', (_, applicationId, contactId) => {
+  return database.linkContactToApplication(applicationId, contactId)
+})
+
+ipcMain.handle('contacts:unlink', (_, applicationId, contactId) => {
+  return database.unlinkContactFromApplication(applicationId, contactId)
+})
+

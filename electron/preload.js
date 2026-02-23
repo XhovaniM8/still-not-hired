@@ -45,5 +45,16 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Data Export
   data: {
     export: (format) => ipcRenderer.invoke('data:export', format)
+  },
+
+  // Contacts
+  contacts: {
+    getAll: () => ipcRenderer.invoke('contacts:getAll'),
+    create: (data) => ipcRenderer.invoke('contacts:create', data),
+    update: (id, data) => ipcRenderer.invoke('contacts:update', id, data),
+    delete: (id) => ipcRenderer.invoke('contacts:delete', id),
+    getByApplication: (applicationId) => ipcRenderer.invoke('contacts:getByApplication', applicationId),
+    link: (applicationId, contactId) => ipcRenderer.invoke('contacts:link', applicationId, contactId),
+    unlink: (applicationId, contactId) => ipcRenderer.invoke('contacts:unlink', applicationId, contactId)
   }
 })
