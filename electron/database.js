@@ -823,6 +823,30 @@ function unlinkContactFromApplication(applicationId, contactId) {
   return { success: true }
 }
 
+function updateStatusHistory(id, data) {
+  const { status, notes, created_at } = data
+  db.prepare(`
+    UPDATE status_history SET status = ?, notes = ?, created_at = ? WHERE id = ?
+  `).run(status, notes || null, created_at, id)
+  return { success: true }
+}
+
+function deleteStatusHistory(id) {
+  db.prepare('DELETE FROM status_history WHERE id = ?').run(id)
+  return { success: true }
+}
+
+function getApplicationsAtStage(stages) {
+  const placeholders = stages.map(() => '?').join(',')
+  return db.prepare(`
+    SELECT DISTINCT a.id, a.company, a.title
+    FROM applications a
+    JOIN status_history sh ON sh.application_id = a.id
+    WHERE sh.status IN (${placeholders})
+    ORDER BY a.company, a.title
+  `).all(...stages)
+}
+
 module.exports = {
   initialize,
   getAllApplications,
@@ -854,5 +878,8 @@ module.exports = {
   deleteContact,
   getContactsForApplication,
   linkContactToApplication,
-  unlinkContactFromApplication
+  unlinkContactFromApplication,
+  getApplicationsAtStage,
+  updateStatusHistory,
+  deleteStatusHistory
 }

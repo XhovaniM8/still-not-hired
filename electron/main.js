@@ -103,6 +103,14 @@ ipcMain.handle('status:add', (_, applicationId, status, notes) => {
   return database.addStatusHistory(applicationId, status, notes)
 })
 
+ipcMain.handle('status:update', (_, id, data) => {
+  return database.updateStatusHistory(id, data)
+})
+
+ipcMain.handle('status:delete', (_, id) => {
+  return database.deleteStatusHistory(id)
+})
+
 // Resumes
 ipcMain.handle('resumes:getAll', async () => {
   try {
@@ -185,6 +193,10 @@ ipcMain.handle('analytics:getVelocityMetrics', () => {
 
 ipcMain.handle('analytics:getStageDuration', () => {
   return database.getAverageStageDuration()
+})
+
+ipcMain.handle('analytics:getApplicationsAtStage', (_, stages) => {
+  return database.getApplicationsAtStage(stages)
 })
 
 // Export

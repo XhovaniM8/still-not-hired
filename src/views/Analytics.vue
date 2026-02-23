@@ -28,18 +28,76 @@
         <div class="text-xs font-medium text-gray-500 dark:text-gray-400">Response Rate</div>
         <div class="text-2xl font-bold text-blue-600 dark:text-blue-400">{{ metrics.responseRate }}%</div>
       </div>
-      <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+
+      <!-- OA Rate with tooltip -->
+      <div
+        class="bg-white dark:bg-gray-800 rounded-lg shadow p-4 relative cursor-default"
+        @mouseenter="activeTooltip = 'oa'"
+        @mouseleave="activeTooltip = null"
+      >
         <div class="text-xs font-medium text-gray-500 dark:text-gray-400">OA Rate</div>
         <div class="text-2xl font-bold text-purple-600 dark:text-purple-400">{{ metrics.oaRate }}%</div>
+        <div class="text-xs text-gray-400 dark:text-gray-500 mt-0.5">{{ stageApps.oa.length }} apps</div>
+        <div
+          v-if="activeTooltip === 'oa' && stageApps.oa.length > 0"
+          class="absolute z-50 top-full left-0 mt-1 w-72 bg-gray-900 text-white text-xs rounded-lg shadow-xl p-3 pointer-events-none"
+        >
+          <div class="font-semibold mb-2 text-purple-300">Reached Online Assessment ({{ stageApps.oa.length }})</div>
+          <div class="space-y-1">
+            <div v-for="app in stageApps.oa" :key="app.id" class="flex gap-2 min-w-0">
+              <span class="font-medium truncate">{{ app.company }}</span>
+              <span class="text-gray-400 truncate shrink-0 max-w-[130px]">{{ app.title }}</span>
+            </div>
+          </div>
+        </div>
       </div>
-      <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+
+      <!-- Screen Rate with tooltip -->
+      <div
+        class="bg-white dark:bg-gray-800 rounded-lg shadow p-4 relative cursor-default"
+        @mouseenter="activeTooltip = 'screen'"
+        @mouseleave="activeTooltip = null"
+      >
         <div class="text-xs font-medium text-gray-500 dark:text-gray-400">Screen Rate</div>
         <div class="text-2xl font-bold text-indigo-600 dark:text-indigo-400">{{ metrics.screenRate }}%</div>
+        <div class="text-xs text-gray-400 dark:text-gray-500 mt-0.5">{{ stageApps.screen.length }} apps</div>
+        <div
+          v-if="activeTooltip === 'screen' && stageApps.screen.length > 0"
+          class="absolute z-50 top-full left-0 mt-1 w-72 bg-gray-900 text-white text-xs rounded-lg shadow-xl p-3 pointer-events-none"
+        >
+          <div class="font-semibold mb-2 text-indigo-300">Reached Recruiter Screen ({{ stageApps.screen.length }})</div>
+          <div class="space-y-1">
+            <div v-for="app in stageApps.screen" :key="app.id" class="flex gap-2 min-w-0">
+              <span class="font-medium truncate">{{ app.company }}</span>
+              <span class="text-gray-400 truncate shrink-0 max-w-[130px]">{{ app.title }}</span>
+            </div>
+          </div>
+        </div>
       </div>
-      <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+
+      <!-- Interview Rate with tooltip -->
+      <div
+        class="bg-white dark:bg-gray-800 rounded-lg shadow p-4 relative cursor-default"
+        @mouseenter="activeTooltip = 'interview'"
+        @mouseleave="activeTooltip = null"
+      >
         <div class="text-xs font-medium text-gray-500 dark:text-gray-400">Interview Rate</div>
         <div class="text-2xl font-bold text-amber-600 dark:text-amber-400">{{ metrics.interviewRate }}%</div>
+        <div class="text-xs text-gray-400 dark:text-gray-500 mt-0.5">{{ stageApps.interview.length }} apps</div>
+        <div
+          v-if="activeTooltip === 'interview' && stageApps.interview.length > 0"
+          class="absolute z-50 top-full left-0 mt-1 w-72 bg-gray-900 text-white text-xs rounded-lg shadow-xl p-3 pointer-events-none"
+        >
+          <div class="font-semibold mb-2 text-amber-300">Reached Interview Stage ({{ stageApps.interview.length }})</div>
+          <div class="space-y-1">
+            <div v-for="app in stageApps.interview" :key="app.id" class="flex gap-2 min-w-0">
+              <span class="font-medium truncate">{{ app.company }}</span>
+              <span class="text-gray-400 truncate shrink-0 max-w-[130px]">{{ app.title }}</span>
+            </div>
+          </div>
+        </div>
       </div>
+
       <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
         <div class="text-xs font-medium text-gray-500 dark:text-gray-400">Offer Rate</div>
         <div class="text-2xl font-bold text-green-600 dark:text-green-400">{{ metrics.offerRate }}%</div>
@@ -218,6 +276,8 @@ const velocity = ref({
   daysSinceLastApp: null
 })
 const stageDurations = ref({})
+const activeTooltip = ref(null)
+const stageApps = ref({ oa: [], screen: [], interview: [] })
 
 async function fetchTimeSeriesData(period) {
   return await store.getCumulativeApplications(period)
@@ -240,6 +300,14 @@ async function loadAnalytics() {
 
   // Load stage durations
   stageDurations.value = await store.getStageDuration()
+
+  // Load apps per stage for tooltips
+  const [oaApps, screenApps, interviewApps] = await Promise.all([
+    store.getApplicationsAtStage(['online_assessment']),
+    store.getApplicationsAtStage(['recruiter_screen']),
+    store.getApplicationsAtStage(['recruiter_screen', 'technical_screen', 'onsite_interview'])
+  ])
+  stageApps.value = { oa: oaApps, screen: screenApps, interview: interviewApps }
 }
 
 async function exportData(format) {

@@ -92,7 +92,7 @@
         <!-- Status Timeline -->
         <div>
           <h3 class="text-sm font-semibold text-gray-900 dark:text-white mb-3">Status History</h3>
-          <StatusTimeline :history="statusHistory" />
+          <StatusTimeline :history="statusHistory" :editable="true" @updated="onHistoryUpdated" />
         </div>
 
         <!-- Notes -->
@@ -320,6 +320,11 @@ async function updateStatus(status) {
   if (status === props.application.current_status) return
 
   await store.addStatus(props.application.id, status, null)
+  statusHistory.value = await store.getStatusHistory(props.application.id)
+  emit('statusUpdated')
+}
+
+async function onHistoryUpdated() {
   statusHistory.value = await store.getStatusHistory(props.application.id)
   emit('statusUpdated')
 }

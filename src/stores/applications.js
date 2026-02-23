@@ -94,6 +94,16 @@ export const useApplicationsStore = defineStore('applications', () => {
     return await window.electronAPI.status.getHistory(applicationId)
   }
 
+  async function updateStatusHistory(id, data) {
+    await window.electronAPI.status.update(id, data)
+    await fetchApplications()
+  }
+
+  async function deleteStatusHistory(id) {
+    await window.electronAPI.status.delete(id)
+    await fetchApplications()
+  }
+
   async function createResume(data) {
     const result = await window.electronAPI.resumes.create(data)
     await fetchResumes()
@@ -144,6 +154,10 @@ export const useApplicationsStore = defineStore('applications', () => {
 
   async function getStageDuration() {
     return await window.electronAPI.analytics.getStageDuration()
+  }
+
+  async function getApplicationsAtStage(stages) {
+    return await window.electronAPI.analytics.getApplicationsAtStage(stages)
   }
 
   async function exportData(format) {
@@ -205,6 +219,8 @@ export const useApplicationsStore = defineStore('applications', () => {
     deleteApplication,
     addStatus,
     getStatusHistory,
+    updateStatusHistory,
+    deleteStatusHistory,
     createResume,
     updateResume,
     deleteResume,
@@ -217,6 +233,7 @@ export const useApplicationsStore = defineStore('applications', () => {
     getCumulativeApplications,
     getVelocityMetrics,
     getStageDuration,
+    getApplicationsAtStage,
     exportData,
     fetchContacts,
     createContact,

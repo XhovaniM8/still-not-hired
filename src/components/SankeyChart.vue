@@ -29,12 +29,10 @@ const statusColors = {
   dropped: '#F97316'
 }
 
-// Dynamic height based on node count
 const containerHeight = computed(() => {
   if (!props.data || !props.data.nodes) return 320
   const nodeCount = props.data.nodes.length
-  // Minimum 320px, add 40px per node above 6
-  return Math.max(320, 200 + nodeCount * 35)
+  return Math.max(320, 200 + nodeCount * 38)
 })
 
 function renderChart() {
@@ -43,7 +41,6 @@ function renderChart() {
   const width = container.value.clientWidth
   if (width === 0) return
 
-  // Clear previous chart
   d3.select(container.value).selectAll('*').remove()
 
   const { nodes, links } = props.data
@@ -56,22 +53,25 @@ function renderChart() {
     return
   }
 
+  const isDark = document.documentElement.classList.contains('dark')
+  const labelColor = isDark ? '#E5E7EB' : '#374151'
+  const labelSecondaryColor = isDark ? '#9CA3AF' : '#6B7280'
+
   const height = containerHeight.value
-  const margin = { top: 20, right: 140, bottom: 20, left: 20 }
+  const margin = { top: 20, right: 160, bottom: 20, left: 20 }
 
   const svg = d3.select(container.value)
     .append('svg')
     .attr('width', width)
     .attr('height', height)
 
-  // Dynamic node padding based on available space and node count
   const availableHeight = height - margin.top - margin.bottom
   const nodeCount = nodes.length
-  const dynamicPadding = Math.max(8, Math.min(20, Math.floor(availableHeight / (nodeCount + 1))))
+  const dynamicPadding = Math.max(10, Math.min(24, Math.floor(availableHeight / (nodeCount + 1))))
 
   const sankeyGenerator = sankey()
     .nodeId(d => d.id)
-    .nodeWidth(15)
+    .nodeWidth(18)
     .nodePadding(dynamicPadding)
     .extent([[margin.left, margin.top], [width - margin.right, height - margin.bottom]])
 
@@ -93,23 +93,42 @@ function renderChart() {
     return
   }
 
-  // Draw links
+  // Create gradient defs for links
+  const defs = svg.append('defs')
+  sankeyLinks.forEach((link, i) => {
+    const gradient = defs.append('linearGradient')
+      .attr('id', `sg-${i}`)
+      .attr('gradientUnits', 'userSpaceOnUse')
+      .attr('x1', link.source.x1)
+      .attr('x2', link.target.x0)
+
+    gradient.append('stop')
+      .attr('offset', '0%')
+      .attr('stop-color', statusColors[link.source.id] || '#9CA3AF')
+      .attr('stop-opacity', 0.7)
+
+    gradient.append('stop')
+      .attr('offset', '100%')
+      .attr('stop-color', statusColors[link.target.id] || '#9CA3AF')
+      .attr('stop-opacity', 0.5)
+  })
+
+  // Draw links with gradient
   svg.append('g')
     .attr('fill', 'none')
     .selectAll('path')
     .data(sankeyLinks)
     .join('path')
     .attr('d', sankeyLinkHorizontal())
-    .attr('stroke', d => {
-      return statusColors[d.source.id] || '#9CA3AF'
-    })
+    .attr('stroke', (d, i) => `url(#sg-${i})`)
     .attr('stroke-width', d => Math.max(1, d.width))
-    .attr('stroke-opacity', 0.4)
+    .attr('stroke-opacity', 0.5)
+    .style('transition', 'stroke-opacity 0.2s')
     .on('mouseover', function() {
-      d3.select(this).attr('stroke-opacity', 0.7)
+      d3.select(this).attr('stroke-opacity', 0.85)
     })
     .on('mouseout', function() {
-      d3.select(this).attr('stroke-opacity', 0.4)
+      d3.select(this).attr('stroke-opacity', 0.5)
     })
     .append('title')
     .text(d => `${d.source.name} → ${d.target.name}: ${d.value}`)
@@ -124,7 +143,9 @@ function renderChart() {
     .attr('height', d => Math.max(1, d.y1 - d.y0))
     .attr('width', d => d.x1 - d.x0)
     .attr('fill', d => statusColors[d.id] || '#9CA3AF')
-    .attr('rx', 3)
+    .attr('rx', 4)
+    .attr('stroke', isDark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.1)')
+    .attr('stroke-width', 1)
     .append('title')
     .text(d => `${d.name}: ${d.value}`)
 
@@ -135,17 +156,15 @@ function renderChart() {
     .selectAll('text')
     .data(sankeyNodes)
     .join('text')
-    .attr('x', d => d.x0 < width / 2 ? d.x1 + 6 : d.x0 - 6)
+    .attr('x', d => d.x0 < width / 2 ? d.x1 + 8 : d.x0 - 8)
     .attr('y', d => {
       let targetY = (d.y1 + d.y0) / 2
       const isRightSide = d.x0 >= width / 2
 
-      // Check for collision with existing labels on same side
       const sameLabels = labelPositions.filter(p => p.rightSide === isRightSide)
       for (const existing of sameLabels) {
-        if (Math.abs(targetY - existing.y) < 14) {
-          // Adjust position to avoid overlap
-          targetY = existing.y + 14
+        if (Math.abs(targetY - existing.y) < 15) {
+          targetY = existing.y + 15
         }
       }
 
@@ -154,7 +173,10 @@ function renderChart() {
     })
     .attr('dy', '0.35em')
     .attr('text-anchor', d => d.x0 < width / 2 ? 'start' : 'end')
-    .attr('class', 'text-xs fill-current text-gray-700 dark:text-gray-300')
+    .style('font-size', '12px')
+    .style('font-family', 'inherit')
+    .style('fill', labelColor)
+    .style('font-weight', '500')
     .text(d => `${d.name} (${d.value})`)
 }
 

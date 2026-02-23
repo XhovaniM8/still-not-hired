@@ -13,7 +13,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Status History
   status: {
     getHistory: (applicationId) => ipcRenderer.invoke('status:getHistory', applicationId),
-    add: (applicationId, status, notes) => ipcRenderer.invoke('status:add', applicationId, status, notes)
+    add: (applicationId, status, notes) => ipcRenderer.invoke('status:add', applicationId, status, notes),
+    update: (id, data) => ipcRenderer.invoke('status:update', id, data),
+    delete: (id) => ipcRenderer.invoke('status:delete', id)
   },
 
   // Resumes
@@ -39,7 +41,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     getApplicationsByPeriod: (period, startDate, endDate) => ipcRenderer.invoke('analytics:getApplicationsByPeriod', period, startDate, endDate),
     getCumulativeApplications: (period) => ipcRenderer.invoke('analytics:getCumulativeApplications', period),
     getVelocityMetrics: () => ipcRenderer.invoke('analytics:getVelocityMetrics'),
-    getStageDuration: () => ipcRenderer.invoke('analytics:getStageDuration')
+    getStageDuration: () => ipcRenderer.invoke('analytics:getStageDuration'),
+    getApplicationsAtStage: (stages) => ipcRenderer.invoke('analytics:getApplicationsAtStage', stages)
   },
 
   // Data Export
