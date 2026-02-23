@@ -23,4 +23,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Local SQLite Storage** — All data stored locally using better-sqlite3; no accounts, no cloud sync
 - **Cross-platform** — Builds available for macOS, Windows, and Linux
 
-[1.0.0]: https://github.com/XhovaniM8/job-tracker/releases/tag/v1.0.0
+[1.0.0]: https://github.com/XhovaniM8/still-not-hired/releases/tag/v1.0.0

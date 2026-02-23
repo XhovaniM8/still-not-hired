@@ -7,8 +7,8 @@ Thanks for your interest in contributing! Here's how to get started.
 1. Fork the repository
 2. Clone your fork:
    ```bash
-   git clone https://github.com/YOUR_USERNAME/job-tracker.git
-   cd job-tracker
+   git clone https://github.com/YOUR_USERNAME/still-not-hired.git
+   cd still-not-hired
    ```
 3. Install dependencies:
    ```bash
@@ -54,11 +54,11 @@ src/
 
 ## Reporting Bugs
 
-Use the [bug report template](https://github.com/XhovaniM8/job-tracker/issues/new?template=bug_report.md).
+Use the [bug report template](https://github.com/XhovaniM8/still-not-hired/issues/new?template=bug_report.md).
 
 ## Requesting Features
 
-Use the [feature request template](https://github.com/XhovaniM8/job-tracker/issues/new?template=feature_request.md).
+Use the [feature request template](https://github.com/XhovaniM8/still-not-hired/issues/new?template=feature_request.md).
 
 ## License
 

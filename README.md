@@ -16,7 +16,7 @@ A desktop application for tracking job applications with analytics, resume manag
 
 ## Download
 
-Download the latest release for your platform from the [Releases](https://github.com/XhovaniM8/job-tracker/releases) page:
+Download the latest release for your platform from the [Releases](https://github.com/XhovaniM8/still-not-hired/releases) page:
 
 | Platform | Download |
 |----------|----------|
@@ -30,8 +30,8 @@ Requirements: Node.js 18+
 
 ```bash
 # Clone the repository
-git clone https://github.com/XhovaniM8/job-tracker.git
-cd job-tracker
+git clone https://github.com/XhovaniM8/still-not-hired.git
+cd still-not-hired
 
 # Install dependencies
 npm install
