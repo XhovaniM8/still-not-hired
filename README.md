@@ -16,7 +16,7 @@ A desktop application for tracking job applications with analytics, resume manag
 
 ## Download
 
-Download the latest release for your platform from the [Releases](https://github.com/XhovaniM8/still-not-hired/releases) page:
+Download the latest release for your platform from the [Releases](https://github.com/XhovaniM8/still-not-hired/releases/tag/v1.0.0) page:
 
 | Platform | Download |
 |----------|----------|
