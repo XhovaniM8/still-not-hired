@@ -1,5 +1,7 @@
 # Job Tracker
 
+![Alt text](/images/job-analysis.jpg)
+
 A desktop application for tracking job applications with analytics, resume management, and keyword matching. Built with Electron, Vue 3, and SQLite — all data stays local on your machine.
 
 ## Features
