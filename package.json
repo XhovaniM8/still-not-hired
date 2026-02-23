@@ -2,7 +2,7 @@
   "name": "job-tracker",
   "version": "1.0.0",
   "description": "Desktop application for tracking job applications with analytics",
-  "author": "Your Name <your.email@example.com>",
+  "author": "XhovaniM8",
   "license": "MIT",
   "main": "electron/main.js",
   "scripts": {
