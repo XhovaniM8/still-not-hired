@@ -24,7 +24,7 @@ jobs:
         run: npm ci
 
       - name: Build macOS
-        run: npm run electron:build:mac
+        run: npx vite build && npx electron-builder --mac --publish never
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
@@ -50,7 +50,7 @@ jobs:
         run: npm ci
 
       - name: Build Windows
-        run: npm run electron:build:win
+        run: npx vite build && npx electron-builder --win --publish never
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
@@ -78,7 +78,7 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev librsvg2-dev patchelf
 
       - name: Build Linux
-        run: npm run electron:build:linux
+        run: npx vite build && npx electron-builder --linux --publish never
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
