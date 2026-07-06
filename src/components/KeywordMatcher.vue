@@ -211,9 +211,10 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { extractKeywords, matchResumesToJob } from '@/utils/keywords'
 import { analyzeJobKeywords } from '@/utils/keywordAnalyzer'
+import { useApplicationsStore } from '@/stores/applications'
 
 const props = defineProps({
   jobDescription: {
@@ -228,19 +229,30 @@ const props = defineProps({
 
 defineEmits(['select-resume'])
 
+const store = useApplicationsStore()
 const showDetails = ref(false)
 const corpusMap = ref(null)
 const corpusJobCount = ref(0)
 
-onMounted(async () => {
+async function refreshCorpus() {
   if (!window.electronAPI) return
   const allJobs = await window.electronAPI.jobDescriptions.getAll()
   if (allJobs.length >= 2) {
     const analyzed = analyzeJobKeywords(allJobs)
     corpusMap.value = new Map(analyzed.map(k => [k.keyword, k]))
     corpusJobCount.value = allJobs.length
+  } else {
+    corpusMap.value = null
+    corpusJobCount.value = 0
   }
-})
+}
+
+onMounted(refreshCorpus)
+
+// Applications are re-fetched as a new array after every create/update/delete
+// (including mass-delete), so this catches deleted job descriptions dropping
+// out of the trending-keyword corpus even if this component stays mounted.
+watch(() => store.applications, refreshCorpus)
 
 const matches = computed(() => {
   if (!props.jobDescription || props.resumes.length === 0) {

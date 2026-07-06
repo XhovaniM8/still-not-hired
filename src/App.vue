@@ -74,9 +74,10 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref } from 'vue'
+import { useDarkMode } from '@/composables/useDarkMode'
 
-const isDark = ref(false)
+const { isDark, toggle: toggleDark } = useDarkMode()
 const sidebarOpen = ref(false)
 
 const navItems = [
@@ -86,15 +87,4 @@ const navItems = [
   { name: 'Contacts', path: '/contacts' },
   { name: 'Analytics', path: '/analytics' }
 ]
-
-function toggleDark() {
-  isDark.value = !isDark.value
-  localStorage.setItem('darkMode', isDark.value)
-  document.documentElement.classList.toggle('dark', isDark.value)
-}
-
-onMounted(() => {
-  isDark.value = localStorage.getItem('darkMode') === 'true'
-  document.documentElement.classList.toggle('dark', isDark.value)
-})
 </script>

@@ -84,6 +84,7 @@
         <div class="text-xs font-medium text-gray-500 dark:text-gray-400">Interview Rate</div>
         <div class="text-2xl font-bold text-amber-600 dark:text-amber-400">{{ metrics.interviewRate }}%</div>
         <div class="text-xs text-gray-400 dark:text-gray-500 mt-0.5">{{ stageApps.interview.length }} apps</div>
+        <div class="text-xs mt-1" :class="benchmarkColor">{{ benchmarkLabel }}</div>
         <div
           v-if="activeTooltip === 'interview' && stageApps.interview.length > 0"
           class="absolute z-50 top-full left-0 mt-1 w-72 bg-gray-900 text-white text-xs rounded-lg shadow-xl p-3 pointer-events-none"
@@ -211,7 +212,11 @@
 
     <!-- Resume Performance -->
     <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-      <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Resume Performance</h2>
+      <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-1">Resume Performance</h2>
+      <p class="text-xs text-gray-500 dark:text-gray-400 mb-4">
+        Ranked by interview rate, not offer rate — most people only ever accept one offer, so offer count
+        is too sparse to meaningfully compare resumes.
+      </p>
       <div v-if="resumeMetrics.length > 0" class="overflow-x-auto">
         <table class="w-full">
           <thead>
@@ -219,8 +224,8 @@
               <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Resume</th>
               <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Applications</th>
               <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Interviews</th>
+              <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Interview Rate</th>
               <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Offers</th>
-              <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Offer Rate</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
@@ -228,12 +233,12 @@
               <td class="px-4 py-3 text-gray-900 dark:text-white font-medium">{{ rm.name }}</td>
               <td class="px-4 py-3 text-right text-gray-600 dark:text-gray-400">{{ rm.total_applications }}</td>
               <td class="px-4 py-3 text-right text-gray-600 dark:text-gray-400">{{ rm.interviews }}</td>
-              <td class="px-4 py-3 text-right text-gray-600 dark:text-gray-400">{{ rm.offers }}</td>
               <td class="px-4 py-3 text-right">
-                <span :class="rm.offerRate > 0 ? 'text-green-600 dark:text-green-400' : 'text-gray-500'">
-                  {{ rm.offerRate }}%
+                <span :class="rm.interviewRate > 0 ? 'text-amber-600 dark:text-amber-400 font-medium' : 'text-gray-500'">
+                  {{ rm.interviewRate }}%
                 </span>
               </td>
+              <td class="px-4 py-3 text-right text-gray-500 dark:text-gray-400">{{ rm.offers }}</td>
             </tr>
           </tbody>
         </table>
@@ -246,9 +251,9 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useApplicationsStore } from '@/stores/applications'
-import { calculateMetrics, calculateResumeMetrics, formatSankeyData } from '@/utils/metrics'
+import { calculateMetrics, calculateResumeMetrics, formatSankeyData, getInterviewRateBenchmarkStatus } from '@/utils/metrics'
 import SankeyChart from '@/components/SankeyChart.vue'
 import TimeSeriesChart from '@/components/TimeSeriesChart.vue'
 import StageDuration from '@/components/StageDuration.vue'
@@ -278,6 +283,29 @@ const velocity = ref({
 const stageDurations = ref({})
 const activeTooltip = ref(null)
 const stageApps = ref({ oa: [], screen: [], interview: [] })
+
+// Benchmark: reported interview-to-application ratio for competitive
+// technical fields (e.g. MS Computer Engineering grads) is commonly
+// 1:100 to 1:40 applications, i.e. 1%-2.5%.
+const benchmarkStatus = computed(() => getInterviewRateBenchmarkStatus(metrics.value.interviewRate))
+
+const benchmarkLabel = computed(() => {
+  const labels = {
+    below: 'Below typical range (1:100–1:40 apps)',
+    within: 'Within typical range (1:100–1:40 apps)',
+    above: 'Above typical range (1:100–1:40 apps)'
+  }
+  return labels[benchmarkStatus.value]
+})
+
+const benchmarkColor = computed(() => {
+  const colors = {
+    below: 'text-red-500 dark:text-red-400',
+    within: 'text-gray-500 dark:text-gray-400',
+    above: 'text-green-600 dark:text-green-400'
+  }
+  return colors[benchmarkStatus.value]
+})
 
 async function fetchTimeSeriesData(period) {
   return await store.getCumulativeApplications(period)

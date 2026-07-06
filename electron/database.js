@@ -216,37 +216,64 @@ function seedTestData() {
 }
 
 // Applications
+// This runs after every single create/update/delete/status-change (fetchApplications()
+// re-syncs the whole list each time), so the statement is prepared once and reused
+// instead of re-parsing the same SQL text on every call.
+let getAllApplicationsStmt = null
 function getAllApplications() {
+  if (!getAllApplicationsStmt) {
+    getAllApplicationsStmt = db.prepare(`
+      SELECT
+        a.*,
+        r.name as resume_name,
+        (SELECT status FROM status_history WHERE application_id = a.id ORDER BY created_at DESC, id DESC LIMIT 1) as current_status,
+        EXISTS (
+          SELECT 1
+          FROM status_history sh1
+          JOIN status_history sh2 ON sh2.id = (
+            SELECT MIN(id) FROM status_history WHERE application_id = sh1.application_id AND id > sh1.id
+          )
+          WHERE sh1.application_id = a.id
+          AND CASE sh1.status
+            WHEN 'draft' THEN 0 WHEN 'applied' THEN 1 WHEN 'online_assessment' THEN 2
+            WHEN 'recruiter_screen' THEN 3 WHEN 'technical_screen' THEN 4
+            WHEN 'onsite_interview' THEN 5 WHEN 'offer' THEN 6
+            ELSE 99
+          END >
+          CASE sh2.status
+            WHEN 'draft' THEN 0 WHEN 'applied' THEN 1 WHEN 'online_assessment' THEN 2
+            WHEN 'recruiter_screen' THEN 3 WHEN 'technical_screen' THEN 4
+            WHEN 'onsite_interview' THEN 5 WHEN 'offer' THEN 6
+            ELSE 99
+          END
+        ) as has_pipeline_issue,
+        EXISTS (
+          SELECT 1 FROM applications a2
+          WHERE a2.id != a.id
+          AND LOWER(a2.company) = LOWER(a.company)
+          AND LOWER(a2.title) = LOWER(a.title)
+        ) as has_duplicate
+      FROM applications a
+      LEFT JOIN resumes r ON a.resume_id = r.id
+      ORDER BY a.updated_at DESC
+    `)
+  }
+  return getAllApplicationsStmt.all()
+}
+
+// Existing applications with the same company+title (case-insensitive) as
+// the given one - used to warn before creating what might be an accidental
+// duplicate. Deliberately just a warning, not a hard block: reapplying to
+// the same role after a rejection is legitimate and shouldn't be prevented.
+function findPotentialDuplicates(company, title, excludeId = null) {
   const stmt = db.prepare(`
-    SELECT
-      a.*,
-      r.name as resume_name,
-      (SELECT status FROM status_history WHERE application_id = a.id ORDER BY created_at DESC LIMIT 1) as current_status,
-      EXISTS (
-        SELECT 1
-        FROM status_history sh1
-        JOIN status_history sh2 ON sh2.id = (
-          SELECT MIN(id) FROM status_history WHERE application_id = sh1.application_id AND id > sh1.id
-        )
-        WHERE sh1.application_id = a.id
-        AND CASE sh1.status
-          WHEN 'draft' THEN 0 WHEN 'applied' THEN 1 WHEN 'online_assessment' THEN 2
-          WHEN 'recruiter_screen' THEN 3 WHEN 'technical_screen' THEN 4
-          WHEN 'onsite_interview' THEN 5 WHEN 'offer' THEN 6
-          ELSE 99
-        END >
-        CASE sh2.status
-          WHEN 'draft' THEN 0 WHEN 'applied' THEN 1 WHEN 'online_assessment' THEN 2
-          WHEN 'recruiter_screen' THEN 3 WHEN 'technical_screen' THEN 4
-          WHEN 'onsite_interview' THEN 5 WHEN 'offer' THEN 6
-          ELSE 99
-        END
-      ) as has_pipeline_issue
+    SELECT a.id, a.created_at,
+      (SELECT status FROM status_history WHERE application_id = a.id ORDER BY created_at DESC, id DESC LIMIT 1) as current_status
     FROM applications a
-    LEFT JOIN resumes r ON a.resume_id = r.id
-    ORDER BY a.updated_at DESC
+    WHERE LOWER(a.company) = LOWER(?) AND LOWER(a.title) = LOWER(?)
+    AND (? IS NULL OR a.id != ?)
   `)
-  return stmt.all()
+  return stmt.all(company, title, excludeId, excludeId)
 }
 
 function autoGhostApplications() {
@@ -285,7 +312,7 @@ function getApplicationById(id) {
     SELECT
       a.*,
       r.name as resume_name,
-      (SELECT status FROM status_history WHERE application_id = a.id ORDER BY created_at DESC LIMIT 1) as current_status
+      (SELECT status FROM status_history WHERE application_id = a.id ORDER BY created_at DESC, id DESC LIMIT 1) as current_status
     FROM applications a
     LEFT JOIN resumes r ON a.resume_id = r.id
     WHERE a.id = ?
@@ -356,6 +383,27 @@ function deleteApplication(id) {
   const stmt = db.prepare('DELETE FROM applications WHERE id = ?')
   stmt.run(id)
   return { success: true }
+}
+
+// Bulk delete, wrapped in one transaction so a mid-batch failure can't leave
+// some applications deleted and others not. status_history, job_descriptions,
+// and application_contacts all cascade via their FOREIGN KEY ON DELETE CASCADE.
+function deleteApplications(ids) {
+  if (!Array.isArray(ids) || ids.length === 0) {
+    return { success: true, deleted: 0 }
+  }
+
+  const stmt = db.prepare('DELETE FROM applications WHERE id = ?')
+  const deleteMany = db.transaction((appIds) => {
+    let deleted = 0
+    for (const id of appIds) {
+      deleted += stmt.run(id).changes
+    }
+    return deleted
+  })
+
+  const deleted = deleteMany(ids)
+  return { success: true, deleted }
 }
 
 // Status History
@@ -476,7 +524,7 @@ function getAnalyticsMetrics() {
   // Get counts by current status
   const statusCounts = db.prepare(`
     SELECT
-      (SELECT status FROM status_history WHERE application_id = a.id ORDER BY created_at DESC LIMIT 1) as status,
+      (SELECT status FROM status_history WHERE application_id = a.id ORDER BY created_at DESC, id DESC LIMIT 1) as status,
       COUNT(*) as count
     FROM applications a
     GROUP BY status
@@ -584,9 +632,9 @@ function getResumeMetrics() {
       r.id,
       r.name,
       COUNT(a.id) as total_applications,
-      SUM(CASE WHEN (SELECT status FROM status_history WHERE application_id = a.id ORDER BY created_at DESC LIMIT 1) = 'offer' THEN 1 ELSE 0 END) as offers,
-      SUM(CASE WHEN (SELECT status FROM status_history WHERE application_id = a.id ORDER BY created_at DESC LIMIT 1) IN ('onsite_interview', 'offer') THEN 1 ELSE 0 END) as interviews,
-      SUM(CASE WHEN (SELECT status FROM status_history WHERE application_id = a.id ORDER BY created_at DESC LIMIT 1) = 'rejected' THEN 1 ELSE 0 END) as rejections
+      SUM(CASE WHEN (SELECT status FROM status_history WHERE application_id = a.id ORDER BY created_at DESC, id DESC LIMIT 1) = 'offer' THEN 1 ELSE 0 END) as offers,
+      SUM(CASE WHEN (SELECT status FROM status_history WHERE application_id = a.id ORDER BY created_at DESC, id DESC LIMIT 1) IN ('onsite_interview', 'offer') THEN 1 ELSE 0 END) as interviews,
+      SUM(CASE WHEN (SELECT status FROM status_history WHERE application_id = a.id ORDER BY created_at DESC, id DESC LIMIT 1) = 'rejected' THEN 1 ELSE 0 END) as rejections
     FROM resumes r
     LEFT JOIN applications a ON a.resume_id = r.id
     GROUP BY r.id
@@ -917,10 +965,12 @@ module.exports = {
   initialize,
   getAllApplications,
   autoGhostApplications,
+  findPotentialDuplicates,
   getApplicationById,
   createApplication,
   updateApplication,
   deleteApplication,
+  deleteApplications,
   getStatusHistory,
   addStatusHistory,
   getAllResumes,

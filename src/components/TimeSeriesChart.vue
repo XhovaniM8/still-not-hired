@@ -78,6 +78,7 @@ import {
   Tooltip,
   Legend
 } from 'chart.js'
+import { useDarkMode } from '@/composables/useDarkMode'
 
 ChartJS.register(
   CategoryScale,
@@ -103,10 +104,7 @@ const showCumulative = ref(false)
 const data = ref([])
 const loading = ref(false)
 
-// Detect dark mode
-const isDark = computed(() => {
-  return document.documentElement.classList.contains('dark')
-})
+const { isDark } = useDarkMode()
 
 async function loadData() {
   loading.value = true

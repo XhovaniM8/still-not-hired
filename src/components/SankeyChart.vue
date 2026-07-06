@@ -6,6 +6,7 @@
 import { ref, computed, onMounted, watch, onUnmounted, nextTick } from 'vue'
 import * as d3 from 'd3'
 import { sankey, sankeyLinkHorizontal } from 'd3-sankey'
+import { useDarkMode } from '@/composables/useDarkMode'
 
 const props = defineProps({
   data: {
@@ -15,6 +16,7 @@ const props = defineProps({
 })
 
 const container = ref(null)
+const { isDark } = useDarkMode()
 
 const statusColors = {
   draft: '#9CA3AF',
@@ -53,9 +55,8 @@ function renderChart() {
     return
   }
 
-  const isDark = document.documentElement.classList.contains('dark')
-  const labelColor = isDark ? '#E5E7EB' : '#374151'
-  const labelSecondaryColor = isDark ? '#9CA3AF' : '#6B7280'
+  const labelColor = isDark.value ? '#E5E7EB' : '#374151'
+  const labelSecondaryColor = isDark.value ? '#9CA3AF' : '#6B7280'
 
   const height = containerHeight.value
   const margin = { top: 20, right: 160, bottom: 20, left: 20 }
@@ -144,7 +145,7 @@ function renderChart() {
     .attr('width', d => d.x1 - d.x0)
     .attr('fill', d => statusColors[d.id] || '#9CA3AF')
     .attr('rx', 4)
-    .attr('stroke', isDark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.1)')
+    .attr('stroke', isDark.value ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.1)')
     .attr('stroke-width', 1)
     .append('title')
     .text(d => `${d.name}: ${d.value}`)
@@ -183,6 +184,12 @@ function renderChart() {
 watch(() => props.data, () => {
   nextTick(renderChart)
 }, { deep: true })
+
+// D3 draws imperatively (not through Vue's template), so a theme toggle
+// needs its own watcher to trigger a redraw with the new label colors.
+watch(isDark, () => {
+  nextTick(renderChart)
+})
 
 let resizeObserver = null
 

@@ -16,10 +16,14 @@
       <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
         <div class="text-sm font-medium text-gray-500 dark:text-gray-400">Interview Rate</div>
         <div class="text-3xl font-bold text-amber-600 dark:text-amber-400 mt-2">{{ metrics.interviewRate }}%</div>
+        <div class="text-xs text-gray-500 dark:text-gray-400 mt-1">Recruiter, technical, or onsite</div>
       </div>
       <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
         <div class="text-sm font-medium text-gray-500 dark:text-gray-400">Offer Rate</div>
         <div class="text-3xl font-bold text-green-600 dark:text-green-400 mt-2">{{ metrics.offerRate }}%</div>
+        <div class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+          {{ metrics.stagesReached?.offer || 0 }} of {{ metrics.total }} applications
+        </div>
       </div>
     </div>
 
@@ -43,7 +47,9 @@
           <div v-for="stage in funnelStages" :key="stage.key">
             <div class="flex justify-between text-sm mb-1">
               <span class="text-gray-600 dark:text-gray-400">{{ stage.label }}</span>
-              <span class="text-gray-900 dark:text-white font-medium">{{ stage.rate }}%</span>
+              <span class="text-gray-900 dark:text-white font-medium">
+                {{ stage.count }} <span class="text-gray-500 dark:text-gray-400 font-normal">({{ stage.rate }}%)</span>
+              </span>
             </div>
             <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
               <div
@@ -93,7 +99,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { useApplicationsStore } from '@/stores/applications'
-import { calculateMetrics, formatPieChartData } from '@/utils/metrics'
+import { calculateMetrics, formatPieChartData, calcRate } from '@/utils/metrics'
 import PieChart from '@/components/PieChart.vue'
 
 const store = useApplicationsStore()
@@ -107,13 +113,17 @@ const pieChartData = computed(() => {
   return formatPieChartData(metrics.value.statusDistribution || {})
 })
 
-const funnelStages = computed(() => [
-  { key: 'positive', label: 'Positive Response', rate: metrics.value.positiveResponseRate, color: 'bg-purple-500' },
-  { key: 'oa', label: 'Online Assessment', rate: metrics.value.oaRate, color: 'bg-violet-500' },
-  { key: 'screen', label: 'Recruiter Screen', rate: metrics.value.screenRate, color: 'bg-indigo-500' },
-  { key: 'interview', label: 'Onsite Interview', rate: metrics.value.interviewRate, color: 'bg-amber-500' },
-  { key: 'offer', label: 'Offer', rate: metrics.value.offerRate, color: 'bg-green-500' }
-])
+const funnelStages = computed(() => {
+  const stagesReached = metrics.value.stagesReached || {}
+  return [
+    { key: 'positive', label: 'Positive Response', count: metrics.value.positiveResponses || 0, rate: metrics.value.positiveResponseRate, color: 'bg-purple-500' },
+    { key: 'oa', label: 'Online Assessment', count: stagesReached.online_assessment || 0, rate: metrics.value.oaRate, color: 'bg-violet-500' },
+    { key: 'screen', label: 'Recruiter Screen', count: stagesReached.recruiter_screen || 0, rate: metrics.value.screenRate, color: 'bg-indigo-500' },
+    { key: 'tech', label: 'Technical Screen', count: stagesReached.technical_screen || 0, rate: calcRate(stagesReached.technical_screen || 0, metrics.value.total), color: 'bg-cyan-500' },
+    { key: 'interview', label: 'Onsite Interview', count: stagesReached.onsite_interview || 0, rate: metrics.value.onsiteRate, color: 'bg-amber-500' },
+    { key: 'offer', label: 'Offer', count: stagesReached.offer || 0, rate: metrics.value.offerRate, color: 'bg-green-500' }
+  ]
+})
 
 const recentApplications = computed(() => {
   return store.applications.slice(0, 5)

@@ -50,10 +50,20 @@ export const useApplicationsStore = defineStore('applications', () => {
   })
 
   // Actions
+  // fetchApplications() re-runs after every create/update/delete/status
+  // change (many times per session), but the auto-ghost sweep only needs to
+  // catch applications that just crossed the 28-day threshold - checking it
+  // once per app launch is enough and avoids an extra query+transaction on
+  // every single mutation.
+  let autoGhostChecked = false
+
   async function fetchApplications() {
     loading.value = true
     try {
-      await window.electronAPI.applications.autoGhost()
+      if (!autoGhostChecked) {
+        await window.electronAPI.applications.autoGhost()
+        autoGhostChecked = true
+      }
       applications.value = await window.electronAPI.applications.getAll()
     } catch (e) {
       error.value = e.message
@@ -76,6 +86,10 @@ export const useApplicationsStore = defineStore('applications', () => {
     return result
   }
 
+  async function findDuplicateApplications(company, title, excludeId = null) {
+    return await window.electronAPI.applications.findDuplicates(company, title, excludeId)
+  }
+
   async function updateApplication(id, data) {
     await window.electronAPI.applications.update(id, data)
     await fetchApplications()
@@ -83,6 +97,11 @@ export const useApplicationsStore = defineStore('applications', () => {
 
   async function deleteApplication(id) {
     await window.electronAPI.applications.delete(id)
+    await fetchApplications()
+  }
+
+  async function deleteApplications(ids) {
+    await window.electronAPI.applications.deleteMany(ids)
     await fetchApplications()
   }
 
@@ -216,8 +235,10 @@ export const useApplicationsStore = defineStore('applications', () => {
     fetchApplications,
     fetchResumes,
     createApplication,
+    findDuplicateApplications,
     updateApplication,
     deleteApplication,
+    deleteApplications,
     addStatus,
     getStatusHistory,
     updateStatusHistory,

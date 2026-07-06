@@ -30,6 +30,20 @@
           </div>
         </div>
 
+        <!-- Duplicate warning -->
+        <div
+          v-if="duplicates.length > 0"
+          class="flex gap-2 px-3 py-2 bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800 rounded-lg text-sm text-amber-800 dark:text-amber-200"
+        >
+          <span>⚠</span>
+          <span>
+            You already have {{ duplicates.length === 1 ? 'an application' : `${duplicates.length} applications` }}
+            for this company and title
+            ({{ duplicates.map(d => store.statusLabels[d.current_status] || d.current_status).join(', ') }}).
+            If this isn't a reapply, you probably don't need another entry.
+          </span>
+        </div>
+
         <!-- Location -->
         <div>
           <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Location</label>
@@ -162,7 +176,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useApplicationsStore } from '@/stores/applications'
 import { extractKeywords } from '@/utils/keywords'
 import KeywordMatcher from './KeywordMatcher.vue'
@@ -195,6 +209,23 @@ const form = ref({
 const jobDescription = ref('')
 const saveError = ref('')
 const saving = ref(false)
+const duplicates = ref([])
+
+let duplicateCheckTimer = null
+
+// Warn (don't block) when company+title matches an existing application -
+// catches accidental double-submits without preventing a legitimate
+// reapply to the same role after a rejection.
+watch([() => form.value.company, () => form.value.title], ([company, title]) => {
+  clearTimeout(duplicateCheckTimer)
+  if (!company.trim() || !title.trim()) {
+    duplicates.value = []
+    return
+  }
+  duplicateCheckTimer = setTimeout(async () => {
+    duplicates.value = await store.findDuplicateApplications(company, title, props.application?.id ?? null)
+  }, 300)
+})
 
 async function save() {
   saveError.value = ''
@@ -248,5 +279,9 @@ onMounted(async () => {
       jobDescription.value = jd.content || ''
     }
   }
+})
+
+onUnmounted(() => {
+  clearTimeout(duplicateCheckTimer)
 })
 </script>

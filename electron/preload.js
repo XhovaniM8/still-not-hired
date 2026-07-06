@@ -8,7 +8,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
     create: (data) => ipcRenderer.invoke('applications:create', data),
     update: (id, data) => ipcRenderer.invoke('applications:update', id, data),
     delete: (id) => ipcRenderer.invoke('applications:delete', id),
-    autoGhost: () => ipcRenderer.invoke('applications:autoGhost')
+    deleteMany: (ids) => ipcRenderer.invoke('applications:deleteMany', ids),
+    autoGhost: () => ipcRenderer.invoke('applications:autoGhost'),
+    findDuplicates: (company, title, excludeId) => ipcRenderer.invoke('applications:findDuplicates', company, title, excludeId)
   },
 
   // Status History

@@ -19,7 +19,19 @@ const techKeywords = [
   // Algorithms & Math
   'algorithm', 'algorithms', 'data structures', 'dsp', 'digital signal processing', 'signal processing',
   // Other
-  'linux', 'unix', 'bash', 'shell', 'security', 'oauth', 'authentication', 'websocket', 'performance', 'optimization'
+  'linux', 'unix', 'bash', 'shell', 'security', 'oauth', 'authentication', 'websocket', 'performance', 'optimization',
+  // Concurrency & parallelism
+  'concurrency', 'multithreading', 'multithreaded', 'parallel computing', 'parallelism', 'cuda', 'opencl',
+  // Messaging & streaming
+  'kafka', 'rabbitmq', 'sqs', 'message queue', 'pubsub', 'pub/sub', 'grpc', 'protobuf', 'protocol buffers',
+  // Observability
+  'prometheus', 'grafana', 'datadog', 'observability', 'monitoring', 'logging',
+  // Version control & CI
+  'svn', 'perforce', 'mercurial', 'circleci', 'travis ci', 'pulumi', 'cloudformation',
+  // Web infra
+  'nginx', 'apache', 'load balancing', 'dns',
+  // Engineering process
+  'six sigma', 'root cause analysis', 'failure analysis', 'reliability engineering', 'quality assurance', 'qa'
 ]
 
 // Hardware/FPGA keywords
@@ -76,7 +88,9 @@ const electronicsKeywords = [
   'pcb', 'schematic', 'layout', 'altium', 'kicad', 'cadence', 'orcad',
   'signal integrity', 'power integrity', 'emc', 'emi', 'rf',
   'analog', 'digital', 'mixed-signal', 'adc', 'dac', 'pll', 'dsp',
-  'oscilloscope', 'logic analyzer', 'spectrum analyzer', 'multimeter'
+  'oscilloscope', 'logic analyzer', 'spectrum analyzer', 'multimeter',
+  // CAD/CAE tools
+  'labview', 'ansys', 'solidworks', 'autocad'
 ]
 
 // Soft skills and other keywords
@@ -100,6 +114,8 @@ const allKeywords = [
   ...softKeywords,
   ...experienceKeywords
 ]
+
+const allKeywordsSet = new Set(allKeywords.map(k => k.toLowerCase()))
 
 // Synonym groups - keywords in same group are treated as equivalent
 const synonymGroups = [
@@ -253,6 +269,16 @@ const toolsKeywords = new Set([
   // Embedded tools
   'jtag', 'swd', 'gdb', 'openocd', 'keil', 'iar', 'gcc-arm',
   'oscilloscope', 'logic analyzer', 'spectrum analyzer', 'multimeter',
+  // CAD/CAE tools
+  'labview', 'ansys', 'solidworks', 'autocad',
+  // Messaging/streaming & GPU compute
+  'kafka', 'rabbitmq', 'sqs', 'cuda', 'opencl',
+  // Observability
+  'prometheus', 'grafana', 'datadog',
+  // Version control & CI
+  'svn', 'perforce', 'mercurial', 'circleci', 'travis ci', 'pulumi', 'cloudformation',
+  // Web infra
+  'nginx', 'apache',
   // General tools
   'git', 'jira', 'simulink', 'matlab'
 ])
@@ -283,7 +309,17 @@ const conceptsKeywords = new Set([
   'machine learning', 'ml', 'ai', 'data science', 'etl', 'data engineering',
   // General
   'linux', 'unix', 'bash', 'shell', 'security', 'websocket', 'performance', 'optimization',
-  'testing', 'unit testing', 'mobile'
+  'testing', 'unit testing', 'mobile',
+  // Concurrency & messaging concepts
+  'concurrency', 'multithreading', 'multithreaded', 'parallel computing', 'parallelism',
+  'message queue', 'pubsub', 'pub/sub', 'grpc', 'protobuf', 'protocol buffers',
+  // Observability concepts
+  'observability', 'monitoring', 'logging',
+  // Web infra concepts
+  'load balancing', 'dns',
+  // Engineering process
+  'six sigma', 'root cause analysis', 'failure analysis', 'reliability engineering',
+  'quality assurance', 'qa'
 ])
 
 const softSkillsKeywords = new Set([
@@ -400,18 +436,24 @@ function extractAdditionalKeywords(text) {
   const found = new Set()
 
   // Only extract from explicit skill sections to avoid noise
-  // Pattern: after "Skills:", "Technologies:", etc. or in comma/bullet lists
-  const skillSectionPattern = /(?:skills?|technologies|tech stack|tools|languages|frameworks|proficien(?:t|cy)|familiar(?:ity)?|experience with)[:\s]+([^.]+)/gi
+  // Pattern: after "Skills:", "Technologies:", etc. or in comma/bullet lists.
+  // The capture is length-bounded so it can't run past the end of the skills
+  // list into unrelated text (contact info, location, next section) when the
+  // resume has no period between sections - that's how a city name like
+  // "Copenhagen" on the next line used to get swept in as a "skill".
+  const skillSectionPattern = /(?:skills?|technologies|tech stack|tools|languages|frameworks|proficien(?:t|cy)|familiar(?:ity)?|experience with)[:\s]+([^.]{1,200})/gi
   let match
   while ((match = skillSectionPattern.exec(text)) !== null) {
     const skillsText = match[1]
     // Split by common delimiters
     const items = skillsText.split(/[,;|•·]/)
     for (const item of items) {
-      const cleaned = item.trim().toLowerCase()
-      if (cleaned.length >= 2 && cleaned.length <= 30 && !isCommonWord(cleaned) && !isJunkKeyword(cleaned)) {
-        found.add(cleaned)
-      }
+      const original = item.trim()
+      const cleaned = original.toLowerCase()
+      if (cleaned.length < 2 || cleaned.length > 30) continue
+      if (isCommonWord(cleaned) || isJunkKeyword(cleaned)) continue
+      if (looksLikeProperNoun(original) && !isKnownKeyword(cleaned)) continue
+      found.add(cleaned)
     }
   }
 
@@ -470,6 +512,25 @@ function isJunkKeyword(word) {
     'abstract', 'art', 'creative', 'innovative'
   ])
   return junkWords.has(word.toLowerCase())
+}
+
+/**
+ * A single Title-Case word (e.g. "Copenhagen", "Farmingdale", "Jonathan") is
+ * far more likely to be a place or person's name than a real skill - genuine
+ * single-word skills are almost always lowercase, ALL-CAPS acronyms (SQL),
+ * or contain digits/symbols (Node.js, C++, Python3). Rather than hand-listing
+ * every city/name that slips through (a losing battle), reject this shape
+ * outright unless the word is already a known keyword.
+ */
+function looksLikeProperNoun(word) {
+  return /^[A-Z][a-z]+$/.test(word)
+}
+
+/**
+ * Check if a word (any case) is already part of the curated keyword dictionary
+ */
+function isKnownKeyword(lowerWord) {
+  return allKeywordsSet.has(lowerWord) || synonymMap.has(lowerWord)
 }
 
 /**
@@ -701,6 +762,13 @@ function stripLatex(text) {
 
   // Remove remaining braces
   cleaned = cleaned.replace(/[{}]/g, ' ')
+
+  // Turn line breaks into sentence boundaries before collapsing whitespace.
+  // Without this, an unrelated line (contact info, a city/address on the
+  // next row) can bleed into a "Skills:" capture that has no period to stop
+  // at, since the collapse below would otherwise erase the only signal that
+  // a new line - and likely a new section - started.
+  cleaned = cleaned.replace(/\n+/g, '. ')
 
   // Clean up multiple spaces and normalize
   cleaned = cleaned.replace(/\s+/g, ' ').trim()

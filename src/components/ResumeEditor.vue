@@ -192,22 +192,19 @@ const newKeyword = ref('')
 const errorMessage = ref('')
 const jobsWithKeywords = ref([])
 
-// Fetch job descriptions with keywords for corpus-based suggestions
+// Fetch job descriptions with keywords for corpus-based suggestions.
+// One batched query instead of one IPC round-trip per application (this
+// used to loop over every application in the store individually - 263
+// separate main-process calls just to build a keyword corpus).
 async function loadJobKeywords() {
   try {
-    const jobs = []
-    for (const app of store.applications) {
-      const jd = await store.getJobDescription(app.id)
-      if (jd && jd.keywords) {
-        const keywords = typeof jd.keywords === 'string'
-          ? JSON.parse(jd.keywords)
-          : jd.keywords
-        if (keywords.length > 0) {
-          jobs.push({ id: app.id, keywords })
-        }
-      }
-    }
-    jobsWithKeywords.value = jobs
+    const allJobs = await window.electronAPI.jobDescriptions.getAll()
+    jobsWithKeywords.value = allJobs.filter(jd => {
+      const keywords = typeof jd.keywords === 'string'
+        ? JSON.parse(jd.keywords || '[]')
+        : (jd.keywords || [])
+      return keywords.length > 0
+    })
   } catch (e) {
     console.warn('Could not load job keywords for suggestions:', e)
   }

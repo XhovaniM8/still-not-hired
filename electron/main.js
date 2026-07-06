@@ -94,12 +94,30 @@ ipcMain.handle('applications:autoGhost', async () => {
   }
 })
 
+ipcMain.handle('applications:findDuplicates', async (_, company, title, excludeId) => {
+  try {
+    return database.findPotentialDuplicates(company, title, excludeId)
+  } catch (error) {
+    console.error('Failed to check for duplicate applications:', error)
+    throw new Error('Failed to check for duplicate applications')
+  }
+})
+
 ipcMain.handle('applications:delete', async (_, id) => {
   try {
     return database.deleteApplication(id)
   } catch (error) {
     console.error('Failed to delete application:', error)
     throw new Error('Failed to delete application')
+  }
+})
+
+ipcMain.handle('applications:deleteMany', async (_, ids) => {
+  try {
+    return database.deleteApplications(ids)
+  } catch (error) {
+    console.error('Failed to delete applications:', error)
+    throw new Error('Failed to delete applications')
   }
 })
 
