@@ -17,7 +17,11 @@
           class="hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer"
           @click="$emit('select', app)"
         >
-          <td class="px-6 py-4 whitespace-nowrap text-gray-900 dark:text-white font-medium">
+          <td
+            class="px-6 py-4 whitespace-nowrap font-medium"
+            :class="app.has_pipeline_issue ? 'text-red-500 dark:text-red-400' : 'text-gray-900 dark:text-white'"
+            :title="app.has_pipeline_issue ? 'Status history has a backwards progression — fix it to restore the Sankey chart' : undefined"
+          >
             {{ app.company }}
           </td>
           <td class="px-6 py-4 whitespace-nowrap text-gray-700 dark:text-gray-300">

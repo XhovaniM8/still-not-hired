@@ -31,6 +31,7 @@
               <option value="Referral">Referral</option>
               <option value="Hiring Manager">Hiring Manager</option>
               <option value="HR">HR</option>
+              <option value="Employee">Employee</option>
               <option value="Other">Other</option>
             </select>
           </div>

@@ -7,7 +7,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     getById: (id) => ipcRenderer.invoke('applications:getById', id),
     create: (data) => ipcRenderer.invoke('applications:create', data),
     update: (id, data) => ipcRenderer.invoke('applications:update', id, data),
-    delete: (id) => ipcRenderer.invoke('applications:delete', id)
+    delete: (id) => ipcRenderer.invoke('applications:delete', id),
+    autoGhost: () => ipcRenderer.invoke('applications:autoGhost')
   },
 
   // Status History
@@ -30,7 +31,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Job Descriptions
   jobDescriptions: {
     getByApplication: (applicationId) => ipcRenderer.invoke('jobDescriptions:getByApplication', applicationId),
-    save: (applicationId, content, keywords) => ipcRenderer.invoke('jobDescriptions:save', applicationId, content, keywords)
+    save: (applicationId, content, keywords) => ipcRenderer.invoke('jobDescriptions:save', applicationId, content, keywords),
+    getAll: () => ipcRenderer.invoke('jobDescriptions:getAll')
   },
 
   // Analytics

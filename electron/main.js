@@ -85,6 +85,15 @@ ipcMain.handle('applications:update', async (_, id, data) => {
   }
 })
 
+ipcMain.handle('applications:autoGhost', async () => {
+  try {
+    return database.autoGhostApplications()
+  } catch (error) {
+    console.error('Failed to auto-ghost applications:', error)
+    throw new Error('Failed to auto-ghost applications')
+  }
+})
+
 ipcMain.handle('applications:delete', async (_, id) => {
   try {
     return database.deleteApplication(id)
@@ -164,6 +173,10 @@ ipcMain.handle('jobDescriptions:getByApplication', (_, applicationId) => {
 
 ipcMain.handle('jobDescriptions:save', (_, applicationId, content, keywords) => {
   return database.saveJobDescription(applicationId, content, keywords)
+})
+
+ipcMain.handle('jobDescriptions:getAll', () => {
+  return database.getAllJobDescriptions()
 })
 
 // Analytics

@@ -121,10 +121,16 @@ export function formatSankeyData(sankeyData) {
       name: statusLabels[status] || status
     }))
 
-  // Filter links using actual node IDs to prevent D3 errors with unknown statuses
+  // Filter links: both nodes must exist AND the transition must go forward in the
+  // status order (prevents cycles that crash d3-sankey)
   const nodeIds = new Set(nodes.map(n => n.id))
   const links = transitions
-    .filter(t => nodeIds.has(t.from_status) && nodeIds.has(t.to_status))
+    .filter(t => {
+      if (!nodeIds.has(t.from_status) || !nodeIds.has(t.to_status)) return false
+      const fromIdx = statusOrder.indexOf(t.from_status)
+      const toIdx = statusOrder.indexOf(t.to_status)
+      return toIdx > fromIdx
+    })
     .map(t => ({
       source: t.from_status,
       target: t.to_status,

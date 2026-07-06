@@ -513,7 +513,7 @@ function isCommonWord(word) {
  * @param {boolean} options.useWeightedScoring - Use weighted scoring (default: true)
  * @returns {object} - Match details including score, matching (with type), and missing keywords
  */
-export function calculateMatchScore(resumeKeywords, jobKeywords, options = {}) {
+export function calculateMatchScore(resumeKeywords, jobKeywords, options = {}, corpusMap = null) {
   const { useWeightedScoring = true } = options
 
   if (!jobKeywords || jobKeywords.length === 0) {
@@ -544,7 +544,13 @@ export function calculateMatchScore(resumeKeywords, jobKeywords, options = {}) {
   let totalWeight = 0
 
   for (const jobKeyword of jobKeywordsLower) {
-    const weight = getKeywordWeight(jobKeyword)
+    let weight = getKeywordWeight(jobKeyword)
+    if (corpusMap) {
+      const entry = corpusMap.get(jobKeyword)
+      if (entry && entry.frequencyPercent >= 20) {
+        weight *= 1 + Math.min(entry.frequencyPercent / 200, 0.5)
+      }
+    }
     totalWeight += weight
 
     let matched = false
@@ -624,14 +630,14 @@ export function calculateMatchScore(resumeKeywords, jobKeywords, options = {}) {
  * @param {string[]} jobKeywords - Keywords from the job description
  * @returns {object[]} - Array of match results sorted by score
  */
-export function matchResumesToJob(resumes, jobKeywords) {
+export function matchResumesToJob(resumes, jobKeywords, corpusMap = null) {
   return resumes
     .map(resume => {
       const resumeKeywords = typeof resume.keywords === 'string'
         ? JSON.parse(resume.keywords || '[]')
         : (resume.keywords || [])
 
-      const match = calculateMatchScore(resumeKeywords, jobKeywords)
+      const match = calculateMatchScore(resumeKeywords, jobKeywords, {}, corpusMap)
 
       return {
         id: resume.id,

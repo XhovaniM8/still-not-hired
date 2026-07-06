@@ -53,6 +53,7 @@ export const useApplicationsStore = defineStore('applications', () => {
   async function fetchApplications() {
     loading.value = true
     try {
+      await window.electronAPI.applications.autoGhost()
       applications.value = await window.electronAPI.applications.getAll()
     } catch (e) {
       error.value = e.message

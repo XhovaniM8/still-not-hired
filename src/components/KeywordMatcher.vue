@@ -1,7 +1,12 @@
 <template>
   <div class="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4">
     <div class="flex items-center justify-between mb-3">
-      <h3 class="text-sm font-semibold text-gray-900 dark:text-white">Resume Match Scores</h3>
+      <div class="flex items-center gap-2">
+        <h3 class="text-sm font-semibold text-gray-900 dark:text-white">Resume Match Scores</h3>
+        <span v-if="corpusJobCount >= 2" class="text-xs text-indigo-600 dark:text-indigo-400">
+          Corpus: {{ corpusJobCount }} saved jobs
+        </span>
+      </div>
       <button
         v-if="matches.length > 0"
         @click="showDetails = !showDetails"
@@ -184,13 +189,31 @@
         <span class="text-green-600 dark:text-green-400">→</span>
         <span>Recommendation: Use <strong class="text-gray-900 dark:text-white">{{ matches[0].name }}</strong></span>
       </div>
+
+      <!-- Trending keywords from corpus -->
+      <div v-if="trendingMissing.length > 0" class="mt-3 pt-3 border-t border-gray-200 dark:border-gray-600">
+        <div class="text-xs font-semibold text-indigo-700 dark:text-indigo-300 mb-2">
+          Trending in your target roles (add to resume):
+        </div>
+        <div class="flex flex-wrap gap-1">
+          <span
+            v-for="m in trendingMissing"
+            :key="m.keyword"
+            class="px-2 py-0.5 bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 text-xs rounded-full"
+            :title="`Appears in ${m.frequencyPercent}% of your saved jobs`"
+          >
+            {{ m.keyword }} <span class="opacity-70">{{ m.frequencyPercent }}%</span>
+          </span>
+        </div>
+      </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { extractKeywords, matchResumesToJob } from '@/utils/keywords'
+import { analyzeJobKeywords } from '@/utils/keywordAnalyzer'
 
 const props = defineProps({
   jobDescription: {
@@ -206,6 +229,18 @@ const props = defineProps({
 defineEmits(['select-resume'])
 
 const showDetails = ref(false)
+const corpusMap = ref(null)
+const corpusJobCount = ref(0)
+
+onMounted(async () => {
+  if (!window.electronAPI) return
+  const allJobs = await window.electronAPI.jobDescriptions.getAll()
+  if (allJobs.length >= 2) {
+    const analyzed = analyzeJobKeywords(allJobs)
+    corpusMap.value = new Map(analyzed.map(k => [k.keyword, k]))
+    corpusJobCount.value = allJobs.length
+  }
+})
 
 const matches = computed(() => {
   if (!props.jobDescription || props.resumes.length === 0) {
@@ -213,7 +248,17 @@ const matches = computed(() => {
   }
 
   const jobKeywords = extractKeywords(props.jobDescription)
-  return matchResumesToJob(props.resumes, jobKeywords)
+  return matchResumesToJob(props.resumes, jobKeywords, corpusMap.value)
+})
+
+const trendingMissing = computed(() => {
+  if (!corpusMap.value || matches.value.length === 0) return []
+  const bestMatch = matches.value[0]
+  return bestMatch.missing
+    .filter(m => corpusMap.value.has(m.keyword))
+    .map(m => ({ ...m, frequencyPercent: corpusMap.value.get(m.keyword).frequencyPercent }))
+    .sort((a, b) => b.frequencyPercent - a.frequencyPercent)
+    .slice(0, 5)
 })
 
 function getScoreColor(score) {

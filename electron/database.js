@@ -221,12 +221,63 @@ function getAllApplications() {
     SELECT
       a.*,
       r.name as resume_name,
-      (SELECT status FROM status_history WHERE application_id = a.id ORDER BY created_at DESC LIMIT 1) as current_status
+      (SELECT status FROM status_history WHERE application_id = a.id ORDER BY created_at DESC LIMIT 1) as current_status,
+      EXISTS (
+        SELECT 1
+        FROM status_history sh1
+        JOIN status_history sh2 ON sh2.id = (
+          SELECT MIN(id) FROM status_history WHERE application_id = sh1.application_id AND id > sh1.id
+        )
+        WHERE sh1.application_id = a.id
+        AND CASE sh1.status
+          WHEN 'draft' THEN 0 WHEN 'applied' THEN 1 WHEN 'online_assessment' THEN 2
+          WHEN 'recruiter_screen' THEN 3 WHEN 'technical_screen' THEN 4
+          WHEN 'onsite_interview' THEN 5 WHEN 'offer' THEN 6
+          ELSE 99
+        END >
+        CASE sh2.status
+          WHEN 'draft' THEN 0 WHEN 'applied' THEN 1 WHEN 'online_assessment' THEN 2
+          WHEN 'recruiter_screen' THEN 3 WHEN 'technical_screen' THEN 4
+          WHEN 'onsite_interview' THEN 5 WHEN 'offer' THEN 6
+          ELSE 99
+        END
+      ) as has_pipeline_issue
     FROM applications a
     LEFT JOIN resumes r ON a.resume_id = r.id
     ORDER BY a.updated_at DESC
   `)
   return stmt.all()
+}
+
+function autoGhostApplications() {
+  // Find applications stuck at 'applied' for 28+ days and ghost them
+  const stale = db.prepare(`
+    SELECT a.id
+    FROM applications a
+    JOIN status_history sh ON sh.id = (
+      SELECT MAX(id) FROM status_history WHERE application_id = a.id
+    )
+    WHERE sh.status = 'applied'
+    AND sh.created_at <= datetime('now', '-28 days')
+  `).all()
+
+  const ghostStmt = db.prepare(`
+    INSERT INTO status_history (application_id, status, notes)
+    VALUES (?, 'ghosted', 'Auto-ghosted after 4 weeks with no update')
+  `)
+  const touchStmt = db.prepare(`
+    UPDATE applications SET updated_at = CURRENT_TIMESTAMP WHERE id = ?
+  `)
+
+  const ghosted = db.transaction(() => {
+    stale.forEach(({ id }) => {
+      ghostStmt.run(id)
+      touchStmt.run(id)
+    })
+    return stale.length
+  })()
+
+  return { ghosted }
 }
 
 function getApplicationById(id) {
@@ -412,6 +463,10 @@ function saveJobDescription(applicationId, content, keywords) {
     stmt.run(applicationId, content, JSON.stringify(keywords || []))
   }
   return { success: true }
+}
+
+function getAllJobDescriptions() {
+  return db.prepare('SELECT id, application_id, keywords FROM job_descriptions').all()
 }
 
 // Analytics
@@ -711,15 +766,26 @@ function exportData(format) {
   if (format === 'json') {
     return JSON.stringify({ applications: fullData, resumes }, null, 2)
   } else if (format === 'csv') {
-    // Simple CSV export for applications
-    const headers = ['id', 'company', 'title', 'location', 'salary_min', 'salary_max', 'current_status', 'resume_name', 'created_at']
-    const rows = fullData.map(app =>
-      headers.map(h => {
-        const val = app[h]
-        if (val === null || val === undefined) return ''
-        return `"${String(val).replace(/"/g, '""')}"`
-      }).join(',')
-    )
+    // Find the max number of status history entries across all applications
+    const maxStatuses = fullData.reduce((max, app) => Math.max(max, app.status_history.length), 0)
+    const statusCols = Array.from({ length: maxStatuses }, (_, i) => `status_${i + 1}`)
+
+    const baseHeaders = ['id', 'company', 'title', 'location', 'salary_min', 'salary_max', 'resume_name', 'created_at', 'has_pipeline_issue']
+    const headers = [...baseHeaders, ...statusCols]
+
+    const csvEscape = val => {
+      if (val === null || val === undefined) return ''
+      return `"${String(val).replace(/"/g, '""')}"`
+    }
+
+    const rows = fullData.map(app => {
+      const base = baseHeaders.map(h => csvEscape(app[h]))
+      const statuses = app.status_history.map(s => csvEscape(s.status))
+      // Pad to maxStatuses
+      while (statuses.length < maxStatuses) statuses.push('')
+      return [...base, ...statuses].join(',')
+    })
+
     return [headers.join(','), ...rows].join('\n')
   }
 
@@ -850,6 +916,7 @@ function getApplicationsAtStage(stages) {
 module.exports = {
   initialize,
   getAllApplications,
+  autoGhostApplications,
   getApplicationById,
   createApplication,
   updateApplication,
@@ -862,6 +929,7 @@ module.exports = {
   updateResume,
   deleteResume,
   getJobDescription,
+  getAllJobDescriptions,
   saveJobDescription,
   getAnalyticsMetrics,
   getSankeyData,
